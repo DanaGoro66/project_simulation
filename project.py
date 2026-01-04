@@ -23,6 +23,7 @@ print("sync test from py")
 
 
 # %% id="9thXDFNGeV8Y"
+from re import S
 import numpy as np
 import copy
 import random
@@ -34,6 +35,8 @@ from google.colab import files
 from datetime import time, datetime, timedelta
 from collections import deque
 import heapq
+from __future__ import annotations
+from typing import Optional, List, Any
 
 # %% [markdown] id="DePf7NHLKTE9"
 # # כתיבת קוד למציאת התפלגויות ומבחני טיב התאמה לזמני התגלשות במגלשות האבובים הקטנה והגדולה
@@ -1686,7 +1689,7 @@ class Algorithm :
   @staticmethod
   ### algorithm for  normal distribution
   def sample_normal(mu, sigma):
-    Sample from N(mu, sigma^2)
+    #Sample from N(mu, sigma^2)
 
     Z = sample_standard_normal()
     X = mu + sigma * Z
@@ -1866,7 +1869,7 @@ class Group:
   def find_min_age(self):
     minAge = self.members[0].age
     for i in range(1, len(self.members)):
-      if (self.members[i].age < minAge)
+      if (self.members[i].age < minAge):
         minAge = self.members[i].age
     return minAge
 
@@ -1888,12 +1891,12 @@ class Group:
       self.pictures_cost = 0
 
 
- class SingleVisitor(Group):
+class SingleVisitor(Group):
   def __init__(self, age = 35):
     super().__init__(amount_of_members=1, max_wait_time=30)
 
   @staticmethod
-  def CreateSingleVisitor()
+  def CreateSingleVisitor():
     new_single_visitor = SingleVisitor()
     # Using reasonable upper bound of 30, choosing continous uniform distribution
     single_visitor_age = Algorithm.sample_continuous_uniform(18, 30)
@@ -1919,7 +1922,7 @@ class Group:
 class Family(Group):
   def __init__(self):
     self.split = False
-    super().__init__(amount_of_members = 2 + Algorithm.sample_number_of_children(1,5),15)
+    super().__init__(2 + Algorithm.sample_number_of_children(1,5),15)
     self.split_groups = []
     self.leave_time = Algorithm.sample_family_leaving_time()
     # Decide if family will split (60% chance)
@@ -1927,7 +1930,7 @@ class Family(Group):
 
 
   @staticmethod
-  def CreateFamily() # creates family, decides ages...
+  def CreateFamily(): # creates family, decides ages...
     new_family = Family()
     num_children = new_family.amount_of_members - 2
     # Create 2 parents
@@ -1953,24 +1956,24 @@ class Family(Group):
     for i in range(1, len(self.members) - 1):
       self.members[i].activity_diary = copy.deepcopy(self.members[0].activity_diary)
 
-  def generate_final_activity_diary(self)
+  def generate_final_activity_diary(self):
     if self.split:
       for group in self.split_groups:
         group.generate_activity_diary()
-    else
+    else:
       minAge = self.find_min_age
-        if minAge >= 12:
-          for member in self.members:
-            member.activity_diary.extend(["Waves Pool", False, False], ["Small Tube Slide", False, False])
-        if minAge >= 14:
-          for member in self.members:
-            member.activity_diary.extend(["Single Water Slide", False, False])
-        if minAge >= 6:
-          for member in self.members:
-            member.activity_diary.extend(["Snorkeling Tour", False, False])
-        if minAge <= 4:
-          for member in self.members:
-            member.activity_diary.extend(["Kids Pool", False, False])
+      if minAge >= 12:
+        for member in self.members:
+          member.activity_diary.extend(["Waves Pool", False, False], ["Small Tube Slide", False, False])
+      if minAge >= 14:
+        for member in self.members:
+          member.activity_diary.extend(["Single Water Slide", False, False])
+      if minAge >= 6:
+        for member in self.members:
+          member.activity_diary.extend(["Snorkeling Tour", False, False])
+      if minAge <= 4:
+        for member in self.members:
+          member.activity_diary.extend(["Kids Pool", False, False])
       # לשים לב שצריך איפשהו בטיפול אירוע לשנות את הסדר של המתקנים לפי אורך תור
 
   def get_candidate_activities(self, last_activity_tried):
@@ -1988,40 +1991,40 @@ class Family(Group):
 
     def decide_on_split(self):
     # If already split, return existing split groups
-    if self.split:
-      return self.split_groups
+      if self.split:
+        return self.split_groups
 
-    if self.will_split:
-      self.split = True
-      # Separate parents and children
-      parents = [m for m in self.members if m.age >= 18]
-      children = [m for m in self.members if m.age < 18]
+      if self.will_split:
+        self.split = True
+        # Separate parents and children
+        parents = [m for m in self.members if m.age >= 18]
+        children = [m for m in self.members if m.age < 18]
 
-      # Categorize children by age
-      young_children = [c for c in children if c.age < 8]  # # Must have parent or 12+
-      middle_children = [c for c in children if 8 <= c.age < 12]  # Independent
-      older_children = [c for c in children if c.age >= 12]  # Can supervise
+        # Categorize children by age
+        young_children = [c for c in children if c.age < 8]  # # Must have parent or 12+
+        middle_children = [c for c in children if 8 <= c.age < 12]  # Independent
+        older_children = [c for c in children if c.age >= 12]  # Can supervise
 
-      # Decide number of groups (2 or 3, equal probability)
-      if random.random() < 0.5
-        num_groups = 2
-      else:
-        num_groups = 3
+        # Decide number of groups (2 or 3, equal probability)
+        if random.random() < 0.5:
+          num_groups = 2
+        else:
+          num_groups = 3
 
-      if num_groups == 3 and self.can_split_into_three(self,  young_children, older_children, middle_children)
-        self.split_groups = self.split_into_three_groups(parents, young_children, middle_children, older_children)
+        if num_groups == 3 and self.can_split_into_three(self,  young_children, older_children, middle_children):
+          self.split_groups = self.split_into_three_groups(parents, young_children, middle_children, older_children)
 
-      else:
-        self.split_groups = self.split_into_two_groups(parents, young_children, middle_children, older_children)
+        else:
+          self.split_groups = self.split_into_two_groups(parents, young_children, middle_children, older_children)
 
-      # Generates the rest of the activities (after the family splitted)
-      self.generate_final_activity_diary()
-      return self.split_groups
-
-    else: # Family doesn't split
-        # Generates the rest of the activities (after the family decdided not to split)
+        # Generates the rest of the activities (after the family splitted)
         self.generate_final_activity_diary()
-        return [self]
+        return self.split_groups
+
+      else: # Family doesn't split
+          # Generates the rest of the activities (after the family decdided not to split)
+          self.generate_final_activity_diary()
+          return [self]
 
 def distribute_children(self, children, num_groups, start_index=0):
   groups = [[] for _ in range(num_groups)]
@@ -2110,7 +2113,7 @@ def distribute_children(self, children, num_groups, start_index=0):
     return len(older) + len(middle) > 0
 
 
-  def create_splitted_family(self, sub_groups)
+  def create_splitted_family(self, sub_groups):
     # Create Splits
     for group in sub_groups:
       split_group = SplittedFamily(len(group), members, self)
@@ -2119,7 +2122,7 @@ def distribute_children(self, children, num_groups, start_index=0):
 
 class SplittedFamily(Group):
   def __init__(self, amount_of_members, members, original_family):
-    super().__init__(amount_of_members = amount_of_members,15)
+    super().__init__(amount_of_members,15)
     self.members = copy.deepcopy(members)
     self.original_family = original_family
     self.has_express = original_family.has_express
@@ -2141,7 +2144,7 @@ class SplittedFamily(Group):
       for member in self.members:
         member.activity_diary.extend(["Snorkeling Tour", False, False])
     if minAge <= 4:
-        for member in self.members:
+      for member in self.members:
         member.activity_diary.extend(["Kids Pool", False, False])
     # לשים לב שצריך איפשהו בטיפול אירוע לשנות את הסדר של המתקנים לפי אורך תור
 
@@ -2162,7 +2165,7 @@ class SplittedFamily(Group):
 
 class Teenagers(Group):
   def __init__(self):
-    super().__init__(amount_of_members = Algorithm.sample_number_of_teenagers(), 20)
+    super().__init__(Algorithm.sample_number_of_teenagers(), 20)
 
   @staticmethod
   def createTeenagers():
@@ -2261,11 +2264,10 @@ class Park:
     return self.avg_rank
 
   def calc_total_revenue(self):
-    return self.facilities["Park Entrance"].total_revenue +
-           self.facilities["Pizza stand"].total_revenue +
-           self.facilities["Hamburger stand"].total_revenue +
-           self.facilities["Salad stand"].total_revenue +
+    return sum(facility.total_revenue for facility in self.facilities.values()) + \
            sum(v.pictures_cost for v in self.visitor_groups)
+
+           ##need to add netagers buying express after renegegd
 
 class Facility:
   def __init__(self, name, num_servers, capacity_per_server):
@@ -2501,64 +2503,139 @@ class SaladFoodStand(FoodStand):
 
 # %% id="O-K9LmHl7Bg5"
 class Queue:
-  def __init__(self, facility_name):
-    self.facility_name = facility_name
-    self.queue = []
-    self.waiting_times = []
-    self.renege_waiting_times = []
-    self.renege_count = 0
-    self.last_change_time = 0
-    self.weighted_queue_length_sum = 0
+    def __init__(self, facility_name: str):
+        self.facility_name: str = facility_name
+        self.queue: List[Any] = []
 
-  def add_to_park_entrance(self, group):
-    self.queue.append(group)
+        # All metrics are in MINUTES (float)
+        self.waiting_times: List[float] = []
+        self.renege_waiting_times: List[float] = []
+        self.renege_count: int = 0
 
-  def pop_from_park_entrance(self):
-    return self.queue.pop(0)
+        # Weighted queue length is in PERSON-MINUTES (float)
+        self.last_change_time: Optional[datetime] = None
+        self.weighted_queue_length_sum: float = 0.0
 
-  def add_group(self, group, current_time):
-    self._update_weighted_length(current_time)
-    group.entry_time = current_time
-    if group.has_express:
-      insert_pos = 0
-      for i, g in enumerate(self.queue):
-          if g.has_express: insert_pos = i + 1
-          else: break
-      self.queue.insert(insert_pos, group)
-    else:
-      self.queue.append(group)
+    # ------------------------------------------------------------
+    # Park entrance buffer 
+    # ------------------------------------------------------------
+    def add_to_park_entrance(self, group: Any) -> None:
+        self.queue.append(group)
 
-  def remove_group_on_renege(self, group, current_time):
-    if group in self.queue:
-      self._update_weighted_length(current_time)
-      self.renege_waiting_times.append(current_time - group.entry_time)
-      self.renege_count += 1
-      self.queue.remove(group)
-      if not isinstance(group,Teenagers):
-        group.decrease_rank(0.8)
-      return True
-    return False
+    def pop_from_park_entrance(self) -> Optional[Any]:
+        if not self.queue:
+            return None
+        return self.queue.pop(0)
 
-  def dispatch_groups(self, capacity, current_time):
-    self._update_weighted_length(current_time)
-    selected_groups = []
-    remaining_capacity = capacity
-    i = 0
-    while i < len(self.queue) and remaining_capacity > 0:
-      group = self.queue[i]
-      if group.amount_of_members <= remaining_capacity:
-        self.queue.pop(i)
-        selected_groups.append(group)
-        remaining_capacity -= group.amount_of_members
-        self.waiting_times.append(current_time - group.entry_time)
-      else:
-        i += 1
-    return selected_groups
+    # ------------------------------------------------------------
+    # Core queue API (for EndAttractionEvent)
+    # ------------------------------------------------------------
+    def is_empty(self) -> bool:
+        return len(self.queue) == 0
 
-  def _update_weighted_length(self, current_time):
-    duration = current_time - self.last_change_time
-    self.weighted_queue_length_sum += len(self.queue) * duration
-    self.last_change_time = current_time
+    def __len__(self) -> int:
+        return len(self.queue)
+
+    def peek(self) -> Optional[Any]:
+        if not self.queue:
+            return None
+        return self.queue[0]
+
+    def get(self, index: int) -> Any:
+        return self.queue[index]
+
+    def add_group(self, group: Any, current_time: datetime) -> None:
+        # Update weighted length before any structural change
+        self._update_weighted_length(current_time)
+
+        # Timestamp used for waiting/renege stats
+        group.entry_time = current_time
+
+        # Express insertion: after all existing express groups (FIFO within express)
+        if getattr(group, "has_express", False):
+            insert_pos = 0
+            for i, g in enumerate(self.queue):
+                if getattr(g, "has_express", False):
+                    insert_pos = i + 1
+                else:
+                    break
+            self.queue.insert(insert_pos, group)
+        else:
+            self.queue.append(group)
+
+    def pop_next_group(self, current_time: datetime) -> Optional[Any]:
+        # Pop FIFO head (express already ordered by add_group)
+        if not self.queue:
+            return None
+
+        self._update_weighted_length(current_time)
+
+        group = self.queue.pop(0)
+        self._record_waiting_time(group, current_time)
+        return group
+
+    def pop_first_group_of_size(self, size: int, current_time: datetime) -> Optional[Any]:
+        # scan from front and pop the FIRST group with exact match (amount_of_members == size)
+        if size <= 0 or not self.queue:
+            return None
+
+        for i, group in enumerate(self.queue):
+            if getattr(group, "amount_of_members", None) == size:
+                self._update_weighted_length(current_time)
+                popped = self.queue.pop(i)
+                self._record_waiting_time(popped, current_time)
+                return popped
+
+        return None
+
+    def remove_group_on_renege(self, group: Any, current_time: datetime) -> bool:
+        # Called by external RenegeEvent
+        if group not in self.queue:
+            return False
+
+        self._update_weighted_length(current_time)
+
+        entry_time = getattr(group, "entry_time", None)
+        if entry_time is not None:
+            renege_wait_minutes = (current_time - entry_time).total_seconds() / 60.0
+            self.renege_waiting_times.append(renege_wait_minutes)
+
+        self.renege_count += 1
+        self.queue.remove(group)
+
+        try:
+            if not isinstance(group, Teenagers):
+                if hasattr(group, "decrease_rank"):
+                    group.decrease_rank(0.8)
+        except NameError:
+            # If Teenagers is not defined in this module scope, apply the decrease (safe fallback)
+            if hasattr(group, "decrease_rank"):
+                group.decrease_rank(0.8)
+
+        return True
+
+    # ------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------
+    def _record_waiting_time(self, group: Any, current_time: datetime) -> None:
+        entry_time = getattr(group, "entry_time", None)
+        if entry_time is None:
+            return
+        waiting_minutes = (current_time - entry_time).total_seconds() / 60.0
+        self.waiting_times.append(waiting_minutes)
+
+    def _update_weighted_length(self, current_time: datetime) -> None:
+        # Accumulate person-minutes since last structural change
+        if self.last_change_time is None:
+            self.last_change_time = current_time
+            return
+
+        duration_minutes = (current_time - self.last_change_time).total_seconds() / 60.0
+        if duration_minutes < 0:
+            duration_minutes = 0.0
+
+        self.weighted_queue_length_sum += len(self.queue) * duration_minutes
+        self.last_change_time = current_time
 
 
 # %% [markdown] id="YLCWrUTT80j6"
@@ -2600,6 +2677,7 @@ class SingleVisitorArrivalEvent(Event):
 
     # taking care of the next arrival event creation
     group = SingleVisitor.CreateSingleVisitor()
+    Simulation.Park.visitor_groups.append(group)
     if next_arrival_time.time() <= datetime(2025, 1, 1, 18, 30):
         simulation.schedule_event(SingleVisitorArrivalEvent(next_arrival_time, group))
     else:
@@ -2629,6 +2707,7 @@ class FamilyArrivalEvent(Event):
 
     # taking care of the next arrival event creation
     group = Family.CreateFamily()
+    Simulation.Park.visitor_groups.append(group)
     if  next_arrival_time.time() <= datetime(2025, 1, 1, 12, 00):
         simulation.schedule_event(FamilyArrivalEvent(next_arrival_time, group))
     else:
@@ -2642,27 +2721,27 @@ class TeenagersArrivalEvent(Event):
     self.group = group
 
   def handle(self, simulation):
+    # handeling the current arrival
+    if datetime(2025, 1, 1, 10, 00) <= self.time <= datetime(2025, 1, 1, 16, 00):
+      if simulation.queue_parkEntrance.queue:
+        simulation.queue_parkEntrance.add_to_park_entrance(self.group)
+      else:
+        service_time = self.time + timedelta(minutes=Algorithm.sample_continuous_uniform(0.5, 2))
+        service_time += timedelta(minutes=Algorithm.sample_exponential(2))
+        simulation.schedule_event(EndGettingTicketEvent(service_time, self.group))
 
-  # handeling the current arrival
-  if datetime(2025, 1, 1, 10, 00) <= self.time <= datetime(2025, 1, 1, 16, 00):
-    if simulation.queue_parkEntrance.queue:
-      simulation.queue_parkEntrance.add_to_park_entrance(self.group)
+    # 500 groups in a day (360 minutes) is a lambda of 18/25
+    time_until_next_arrival = Algorithm.sample_exponential(18/25)
+    next_arrival_time = self.time + timedelta(minutes=time_until_next_arrival)
+
+    # taking care of the next arrival event creation
+    group = Teenagers.CreateTeenagers()
+    Simulation.Park.visitor_groups.append(group)
+    if next_arrival_time.time() <= datetime(2025, 1, 1, 16, 00):
+        simulation.schedule_event(TeenagersArrivalEvent(next_arrival_time, group))
     else:
-      service_time = self.time + timedelta(minutes=Algorithm.sample_continuous_uniform(0.5, 2))
-      service_time += timedelta(minutes=Algorithm.sample_exponential(2))
-      simulation.schedule_event(EndGettingTicketEvent(service_time, self.group))
-
-  # 500 groups in a day (360 minutes) is a lambda of 18/25
-  time_until_next_arrival = Algorithm.sample_exponential(18/25)
-  next_arrival_time = self.time + timedelta(minutes=time_until_next_arrival)
-
-  # taking care of the next arrival event creation
-  group = Teenagers.CreateTeenagers()
-  if next_arrival_time.time() <= datetime(2025, 1, 1, 16, 00):
-      simulation.schedule_event(TeenagersArrivalEvent(next_arrival_time, group))
-  else:
-      return
-  # when next arrival time sampled is not within the arrival hours, the arrival event wil stop it's on creation
+        return
+    # when next arrival time sampled is not within the arrival hours, the arrival event wil stop it's on creation
 
 class EndGettingTicketEvent(Event):
   def __init__(self, time, group):
@@ -2695,6 +2774,7 @@ class EndGettingTicketEvent(Event):
       simulation.schedule_event(QueueAbandonmentEvent(next_abandonment_time, self.group, next_activity))
 
 class LeavingEvent(Event):
+    pass
 
 class EndAttractionEvent(Event):
   def __init__(self, time, group, activity):
@@ -2723,8 +2803,9 @@ class EndAttractionEvent(Event):
     # Create splited family after communal activities
     if isinstance (self.group, Family) and self.group.is_phase_finished(2): # Family that finished the last activity for all ages
       self.group.decide_on_split()
-      for (splittedFamily in self.group.split_groups):
+      for splittedFamily in self.group.split_groups:
         # להכניס פה קוד כניסת כל משפחה מפוצלת אם בכלל לכל המתקנים
+        pass #TODO
 
     # Getting the next activity for the group
     next_activity = simulation.get_best_next_activity(self.group, self.activity)
@@ -2750,6 +2831,7 @@ class EndAttractionEvent(Event):
       simulation.schedule_event(QueueAbandonmentEvent(next_abandonment_time, self.group, next_activity))
 
   def updateRating(self):
+    pass
 
 class EndLunchEvent(Event):
   def __init__(self, time, group):
@@ -2780,8 +2862,10 @@ class EndLunchEvent(Event):
         pass
 
   def handle(self, simulation):
+    pass
 
   def updateRating(self):
+    pass
 
 class QueueAbandonmentEvent(Event):
   def __init__(self, time, group, activity):
@@ -2793,8 +2877,34 @@ class QueueAbandonmentEvent(Event):
 
 class EndOfSimulation(Event):
   def __init__(self):
+    pass
 
+class Session:
+  def __init__(self, group, activity, arrival_time):
+    self.group = group
+    self.attraction = attraction
+    self.total_units = group.amount_of_members # כמות האנשים בקבוצה המקורית
+    self.remaining_to_start = self.total_units # כמה אנשים מהקבוצה עוד לא נכנסו למתקן
+    self.in_service = 0 # כמה אנשים מהקבוצה נמצאים כרגע בתוך המתקן
+    self.arrival_time = arrival_time # זמן ההגעה לתור (לצורך חישובי סטטיסטיקה של המתנה)
+    self.meta = {} # מילון גמיש לנתונים נוספים (כמו מזהה מדריך, מזהה אבוב וכו')
 
+  def is_finished(self):
+    #הקבוצה סיימה את המתקן רק כשכולם נכנסו וכולם יצאו
+    return self.remaining_to_start == 0 and self.in_service == 0
+
+  def record_entry(self, units):
+    # מעדכן כשחלק מהקבוצה נכנס למתקן
+    if units > self.remaining_to_start:
+        raise ValueError(f"נסיו להכניס {units} אנשים, אך רק {self.remaining_to_start} נותרו ב-Session")
+    self.remaining_to_start -= units
+    self.in_service += units
+
+  def record_exit(self, units):
+    # מעדכן כשחלק מהקבוצה מסיים את המתקן ויוצא ממנו
+    if units > self.in_service:
+        raise ValueError(f"נסיון להוציא {units} אנשים, אך רק {self.in_service} נמצאים בשירות")
+    self.in_service -= units
 
 # %% [markdown] id="EglZTYyj8EZI"
 # #Simulation Class
@@ -2807,6 +2917,9 @@ class Simulation:
     self.event_diary =[] #minimum heap
 
   def run(self):
+    while self.event_diary:
+      event = heapq.heappop(self.event_diary)
+      event.handle(self)
 
   def schedule_event(self, event):
     heapq.heappush(self.event_diary, event)
