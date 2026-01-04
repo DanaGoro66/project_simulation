@@ -23,6 +23,7 @@ print("sync test from py")
 
 
 # %% id="9thXDFNGeV8Y"
+import queue
 from re import S
 import numpy as np
 import copy
@@ -1890,6 +1891,19 @@ class Group:
       #Not buying photos
       self.pictures_cost = 0
 
+  def units_for(self, activity):
+
+    # אם מדובר בבריכת ילדים, רק הילדים נכנסים
+    if activity== "Kids Pool":
+      kidsNum=0
+      for member in self.members:
+        if member.age < 4:
+          kidsNum+=1
+      return kidsNum 
+    
+    # כברירת מחדל לכל שאר המתקנים - כל הקבוצה נכנסת
+    return self.amount_of_members
+
 
 class SingleVisitor(Group):
   def __init__(self, age = 35):
@@ -2217,28 +2231,29 @@ class Park:
     create_rides_and_food_stands()
 
   def create_rides_and_food_stands(self):
+      # Setting all the park's queues
+    self.queues["Park Entrance"] = Queue("Park Entrance")
+    self.queues["Lazy River"] = Queue("Lazy River")
+    self.queues["Single Water Slide"] = Queue("Single Water Slide")
+    self.queues["Big Tube Slide"] = Queue("Big Tube Slide")
+    self.queues["Small Tube Slide"] = Queue("Small Tube Slide")
+    self.queues["Waves Pool"] = Queue("Waves Pool")
+    self.queues["Kids Pool"] = Queue("Kids Pool")
+    self.queues["Snorkeling Tour"] = Queue("Snorkeling Tour")
     # Setting all the park's facilities
     self.facilities["Park Entrance"] = ParkEntrance()
-    self.facilities["Lazy River"] = LazyRiverAttraction()
-    self.facilities["Single Water Slide"] = SingleWaterSlideAttraction()
-    self.facilities["Big Tube Slide"] = BigTubeSlideAttraction()
-    self.facilities["Small Tube Slide"] = SmallTubeSlideAttraction()
-    self.facilities["Waves Pool"] = WavesPoolAttraction()
-    self.facilities["Kids Pool"] = KidsPoolAttraction()
-    self.facilities["Snorkeling Tour"] = SnorkelingTourAttraction()
+    self.facilities["Lazy River"] = LazyRiverAttraction(self.queues["Lazy River"])
+    self.facilities["Single Water Slide"] = SingleWaterSlideAttraction(self.queues["Single Water Slide"])
+    self.facilities["Big Tube Slide"] = BigTubeSlideAttraction(self.queues["Big Tube Slide"])
+    self.facilities["Small Tube Slide"] = SmallTubeSlideAttraction(self.queues["Small Tube Slide"])
+    self.facilities["Waves Pool"] = WavesPoolAttraction(self.queues["Waves Pool"])
+    self.facilities["Kids Pool"] = KidsPoolAttraction(self.queues["Kids Pool"])
+    self.facilities["Snorkeling Tour"] = SnorkelingTourAttraction(self.queues["Snorkeling Tour"])
     self.facilities["Pizza stand"] = PizzaFoodStand()
     self.facilities["Hamburger stand"] = HamburgerFoodStand()
     self.facilities["Salad stand"] = SaladFoodStand()
 
-    # Setting all the park's queues
-    self.queues["Park Entrance"] = Queue("Park Entrance")
-    self.queues["Lazy River"] = Queue("Lazy river")
-    self.queues["Single Water Slide"] = Queue("Single Water Slide")
-    self.queues["Big Tube Slide"] = Queue("Big Tube Slide")
-    self.queues["Small Tube"] = Queue("Small Tube Slide")
-    self.queues["Waves Pool"] = Queue("Waves Pool")
-    self.queues["Kids Pool"] = Queue("Kids Pool")
-    self.queues["Snorkeling Tour"] = Queue("Snorkeling Tour")
+  
 
 
   def is_open(self, current_time):
@@ -2267,14 +2282,14 @@ class Park:
     return sum(facility.total_revenue for facility in self.facilities.values()) + \
            sum(v.pictures_cost for v in self.visitor_groups)
 
-           ##need to add netagers buying express after renegegd
+           ##need to add teenagers buying express after renegegd
 
 class Facility:
   def __init__(self, name, num_servers, capacity_per_server):
     self.name = name
     self.available_servers = num_servers
     self.capacity_per_server = capacity_per_server
-    self.queue = SmartQueue(name)
+    self.queue = SmartQueue(name) #what? TODO
     self.total_revenue = 0
 
   def is_idle(self):
@@ -2317,68 +2332,246 @@ class ParkEntrance(Facility):
 
 # %% id="DrAjmYFN5dM-"
 class Attraction(Facility):
-    def __init__(self, name, adrenalinLevel, minAge, availableServers, rideCapacity):
+    def __init__(self, name, adrenalinLevel, minAge, availableServers, rideCapacity, queue):
         super().__init__(name, availableServers, rideCapacity)
         self.adrenalinLevel = adrenalinLevel
         self.minAge = minAge
+        self.queue=queue
+
+    def enter_ride(self, units_to_enter,clock):
+      pass
+
+    def exit_ride(self, units_finished):
+      pass
+
+    def get_free_capacity(self) -> int:
+      #get specific capacity
+      pass
 
     def get_ride_time(self, isFirst = False):
+      pass  
+    def has_free_capacity(self) -> bool:
+      #at least one free spot at least one free server
+      pass
+
+    def get_priority_session(self, simulation):
+      #find the relevant session TODO
+      pass
+    def calculate_units_for_entry(self, group) -> int:
+      #how much can I fit in the attraction from the group
       pass
 
 class LazyRiverAttraction(Attraction):
-    def __init__(self):
-      super().__init__("Lazy River", adrenalinLevel=1, minAge=0, availableServers=1, rideCapacity=60)
+    def __init__(self,queue):
+      super().__init__("Lazy River", adrenalinLevel=1, minAge=0, availableServers=1, rideCapacity=60, queue=queue)
       self.tubeCapacity = 2
       self.occupiedTubes = 0
 
     def get_ride_time(self):
       return sample_continuous_uniform(20,30)
 
+    def enter_ride(self, units_to_enter,clock):
+      tubes_num=units_to_enter // self.tubeCapacity
+      self.occupiedTubes += tubes_num
+
+    def exit_ride(self, units_finished):
+      tubes_num=units_finished // self.tubeCapacity
+      self.occupiedTubes -= tubes_num
+
+
+    def get_free_capacity(self) -> int:
+      return (self.rideCapacity-self.occupiedTubes)*self.tubeCapacity
+
+
+
+    def has_free_capacity(self) -> bool:
+      return self.occupiedTubes < self.rideCapacity
+
+    def calculate_units_for_entry(self, group) -> int:
+      avail_tubes =self.rideCapacity-self.occupiedTubes
+      if avail_tubes*2>group.amount_of_members:
+        return group.amount_of_members
+      else:
+        return avail_tubes*2
+
+      
+
 
 class SingleWaterSlideAttraction(Attraction):
-    def __init__(self):
-        super().__init__("Single Water Slide", adrenalinLevel=5, minAge=14, availableServers=2, rideCapacity=1)
-        self.newRiderTime = 0.5  # חצי דקה מיוצגת כ-0.5 יחידות זמן
+    def __init__(self, queue):
+        super().__init__("Single Water Slide", adrenalinLevel=5, minAge=14, availableServers=2, rideCapacity=1,queue=queue)
+        self.gate = timedelta(seconds=30) #new visitor every 30 seconds
+        self.ride_time = timedelta(minutes=3) #takes excately 3 minutes
+        self.next_entry_time = [open_time, open_time] # 2 servers
+        self.last_server_assigned = None
 
-    def get_ride_time(self, isFirst):
-      if isFirst:
-        return 3
-      return 0.5
+
+    def enter_ride(self, units_to_enter,clock):
+      for server_id, t in enumerate(self.next_entry_time):
+            if clock >= t:
+                self.last_server_assigned = server_id
+                # reserve gate
+                self.next_entry_time[server_id] = clock + self.gate
+                break
+
+
+      
+
+    def exit_ride(self, units_finished):
+      pass
+
+    def get_free_capacity(self) -> int:
+      num = 0
+      for t in self.next_entry_time:  # Just iterate over times directly
+          if clock >= t:
+              num += 1
+      return num
+
+    def has_free_capacity(self) -> bool:
+      for t in self.next_entry_time:  # Just iterate over times directly
+          if clock >= t:
+              return True
+      return False
+
+
+    def get_ride_time(self, isFirst = False):
+      return self.ride_time
+
+    def calculate_units_for_entry(self, group) -> int:
+      return 1
+        
+
+    # Calculate how many people can be entered right now
+    def calculate_units_for_entry(self, group) -> int:
+      num = 0
+      for t in self.next_entry_time:  # Just iterate over times directly
+          if clock >= t:
+              num += 1
+      return num
+
+
 
 class BigTubeSlideAttraction(Attraction):
-    def __init__(self):
-      super().__init__("Big Tube Slide", adrenalinLevel=2, minAge=0, availableServers=1, rideCapacity=1)
+    def __init__(self,queue):
+      super().__init__("Big Tube Slide", adrenalinLevel=2, minAge=0, availableServers=1, rideCapacity=1, queue=queue)
       self.tubeCapacity = 8
 
     def get_ride_time(self):
       return sample_normal(4.800664, 1.823101)
 
+    def enter_ride(self, units_to_enter,clock):
+      self.assign_server()
+
+    def exit_ride(self, units_finished):
+      self.release_server()
+
+
+    def get_free_capacity(self) -> int:
+      return self.tubeCapacity
+
+    def has_free_capacity(self) -> bool:
+      return self.availableServers > 0
+
+    def calculate_units_for_entry(self, group) -> int:
+      return group.amount_of_members
+      
+
 class SmallTubeSlideAttraction(Attraction):
-    def __init__(self):
-        super().__init__("Small Tube Slide", adrenalinLevel=4, minAge=12, availableServers=1, rideCapacity=1)
+    def __init__(self,queue):
+        super().__init__("Small Tube Slide", adrenalinLevel=4, minAge=12, availableServers=1, rideCapacity=1, queue=queue)
         self.tubeCapacity = 3
 
     def get_ride_time(self):
       return sample_exponential(2.107060)
 
+    def enter_ride(self, units_to_enter,clock):
+      self.assign_server()
+
+    def exit_ride(self, units_finished):
+      self.release_server()
+
+
+    def get_free_capacity(self) -> int:
+      return self.tubeCapacity
+
+    def has_free_capacity(self) -> bool:
+      return self.availableServers > 0
+
+    def calculate_units_for_entry(self, group) -> int:
+      if group.amount_of_members <= self.tubeCapacity:
+        return group.amount_of_members  
+      return self.tubeCapacity
+
 class WavesPoolAttraction(Attraction):
-    def __init__(self):
-        super().__init__("Waves Pool", adrenalinLevel=3, minAge=12, availableServers=1, rideCapacity=80)
+    def __init__(self,queue):
+        super().__init__("Waves Pool", adrenalinLevel=3, minAge=12, availableServers=1, rideCapacity=80, queue=queue)
+        self.occupied_spots = 0  
+
+    def enter_ride(self, units_to_enter,clock):
+      self.occupied_spots += units_to_enter
+
+    def exit_ride(self, units_finished):
+      self.occupied_spots -= units_finished
 
     def get_ride_time(self):
       return generate_wavepool_time()
 
+    def get_free_capacity(self) -> int:
+        return self.rideCapacity-self.occupied_spots
+
+    def check_spots(self, guest_size):
+        if self.rideCapacity - self.occupied_spots >= guest_size:
+            return True
+        return False
+
+    def has_free_capacity(self) -> bool:
+      return self.occupied_spots < self.rideCapacity
+
+    def calculate_units_for_entry(self, group) -> int:
+      #how much can I fit in the attraction from the group
+      if self.check_spots(group.size):
+        return group.size
+      return self.rideCapacity - self.occupied_spots
+
+
 class KidsPoolAttraction(Attraction):
-    def __init__(self):
-        super().__init__("Kids Pool", adrenalinLevel=1, minAge=0, availableServers=1, rideCapacity=30)
+    def __init__(self,queue):
+        super().__init__("Kids Pool", adrenalinLevel=1, minAge=0, availableServers=1, rideCapacity=30, queue=queue)
         self.maxAge = 4
+        self.occupied_spots=0
 
     def get_ride_time(self):
       return generate_kids_pool_time() * 60
 
+    def enter_ride(self, units_to_enter,clock):
+      self.occupied_spots += units_to_enter
+
+    def exit_ride(self, units_finished):
+      self.occupied_spots -= units_finished
+
+
+    def get_free_capacity(self) -> int:
+        return self.rideCapacity-self.occupied_spots
+
+    def check_spots(self, guest_size):
+        if self.rideCapacity - self.occupied_spots >= guest_size:
+            return True
+        return False
+
+    def has_free_capacity(self) -> bool:
+      return self.occupied_spots < self.rideCapacity
+
+    def calculate_units_for_entry(self, group) -> int:
+      #how much can I fit in the attraction from the group
+      if self.check_spots(group.units_for(self)):
+        return group.units_for(self)
+      return self.rideCapacity - self.occupied_spots
+
+    
+
 class SnorkelingTourAttraction(Attraction):
-    def __init__(self):
-        super().__init__("Snorkeling Tour", adrenalinLevel=3, minAge=6, availableServers=2, rideCapacity=30)
+    def __init__(self,queue):
+        super().__init__("Snorkeling Tour", adrenalinLevel=3, minAge=6, availableServers=2, rideCapacity=30, queue=queue)
         self.guide_break_duration = 30
         # חשוב: guides_ready_time חייב להכיל אובייקט datetime מלא
         self.guides_ready_time = [time(9,0)] * 2
@@ -2954,3 +3147,77 @@ class Simulation:
         return None
     # פונקציית עזר למציאת המינימום לפי אורך התור בפארק
     return min(candidates, key=lambda name: len(self.park.queues[name].queue))
+
+  def service_next_visitors(self, attraction, simulation):
+      # Pops the next session/group to enter the attraction and creating an event for them
+            
+      # As long as we have free space on the ride
+      while self.attraction.has_free_capacity():
+        next_group = None
+        units_to_enter = 0
+        
+        # Getting the lastest session
+        candidate_session = self.attraction.get_priority_session()
+        
+        if candidate_session:
+          next_group = candidate_session.group
+          # How much space there is on the tube vs how much space there is on the session
+          units_to_enter = min(self.attraction.free_capacity, candidate_session.remaining_to_start)
+          candidate_session.record_entry(units_to_enter)
+        
+        # If there is no such session
+        elif not self.attraction.queue.is_empty():
+          next_group = self.attraction.queue.pop_next_group() # לבדוק עם דנה איך קוראים לפונקציה
+          
+          # Creating a new session
+          new_session = Session(next_group, self.attraction, self.time)
+          simulation.sessions[(next_group, self.attraction.name)] = new_session
+          
+          # Calculates how many units enter
+          units_to_enter = self.attraction.calculate_units_for_entry(next_group)
+          new_session.record_entry(units_to_enter)
+        
+        # There is no one to pull
+        else:
+          break
+              
+        # Making the next event
+        if units_to_enter > 0:
+          self.attraction.occupancy += units_to_enter
+          service_duration = self.attraction.get_ride_time()
+          end_time = self.time + timedelta(minutes=service_duration)
+          simulation.schedule_event(self.attraction(end_time, next_group, self.attraction, units_to_enter))
+  def route_group_to_next(self, group, current_time, next_activity=None):
+    # Routing a group to it's next destenation - next activity or leaving
+    
+    # Finding the next activity
+    if next_activity is None:
+        next_activity = self.get_best_next_activity(group)
+
+    # In case of finishing all the activities (not for families or splitted families)
+    if isinstance(group, SingleVisitor) or isinstance (group, Teenagers):
+      if next_activity is None:
+        self.schedule_event(LeavingEvent(current_time, group))
+        return
+
+    # Finiding the queue and attraction
+    queue, attraction = self.get_activity_queue_and_ride(next_activity)
+
+    # If the group can enter immediately
+    if attraction.can_enter_immediately(group):
+      end_time = current_time + timedelta(minutes=attraction.get_ride_time())
+      self.schedule_event(EndAttractionEvent(end_time, group, attraction, group.units_for(next_activity)))
+    
+    # If they can't enter immediately
+    else:
+      # Inserts the group to the queue
+      queue.add_group(group, current_time)
+      
+      # Making an abandonment event (will be canceled if needed)
+      abandon_time = current_time + timedelta(minutes=group.max_wait_time)
+      self.schedule_event(QueueAbandonmentEvent(abandon_time, group, next_activity))
+      
+      # ניסיון "למשוך" מהתור (למקרה שהמתקן פנוי והתור היה ריק)
+      next_activity.try_pull_from_queue(self, current_time)
+      self.service_next_visitors(attraction, current_time)
+
