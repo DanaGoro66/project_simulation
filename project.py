@@ -1832,7 +1832,6 @@ class Visitor:
     for act in self.activity_diary:
       if act[0] == activity:
         act[2] = True
-       # self.group.last_abandoned = act[0]
         break
 
 
@@ -1842,7 +1841,6 @@ class Group:
     self.amount_of_members = amount_of_members
     self.members = []
     self.pictures_cost = 0
-   # self.last_abandoned = None
     self.max_wait_time = max_wait_time
     self.decided_on_lunch = False
 
@@ -1938,7 +1936,7 @@ class Family(Group):
     self.split = False
     super().__init__(2 + Algorithm.sample_number_of_children(1,5),15)
     self.split_groups = []
-    self.leave_time = Algorithm.sample_family_leaving_time()
+    self.leave_time = datetime(2025, 1, 1) + timedelta(hours=sample_family_leaving_time())
     # Decide if family will split (60% chance)
     self.will_split = random.random() < 0.6
 
@@ -2191,10 +2189,9 @@ class Teenagers(Group):
         teen = Visitor(rank=10, age=teen_age, group=new_teenage_group)
         new_teenage_group.members.append(teen)
 
-  @staticmethod
-  def buy_express(Teenagers):
-    Teenagers.has_express = True
-    return amount_of_members * 50
+  def buy_express(simulation):
+    self.has_express = True
+    simulation.park.special_express_revenue = self.amount_of_members * 50
 
   def generate_activity_diary(self):
     # Generate for teenagers only the rides with 3 or more waves
@@ -2222,7 +2219,7 @@ class Teenagers(Group):
 class Park:
   def __init__(self):
     self.visitor_groups = []
-    self.total_revenue = 0
+    self.special_express_revenue = 0
     self.avg_rank = 0
     self.facilities = {} # a dictionary for all the park's facilities
     self.queues = {} # a dictionary for all the park's queues
@@ -2279,18 +2276,18 @@ class Park:
     return self.avg_rank
 
   def calc_total_revenue(self):
-    return sum(facility.total_revenue for facility in self.facilities.values()) + \
-           sum(v.pictures_cost for v in self.visitor_groups)
-
-           ##need to add teenagers buying express after renegegd
+    return (self.special_express_revenue + 
+        self.facilities["Park Entrance"].total_revenue +
+        self.facilities["Pizza stand"].total_revenue +
+        self.facilities["Hamburger stand"].total_revenue +
+        self.facilities["Salad stand"].total_revenue +
+        sum(v.pictures_cost for v in self.visitor_groups))
 
 class Facility:
   def __init__(self, name, num_servers, capacity_per_server):
     self.name = name
     self.available_servers = num_servers
     self.capacity_per_server = capacity_per_server
-    self.queue = SmartQueue(name) #what? TODO
-    self.total_revenue = 0
 
   def is_idle(self):
     return self.available_servers > 0
@@ -2307,23 +2304,23 @@ class ParkEntrance(Facility):
     self.total_revenue = 0
 
   def calculate_and_charge(self, group):
-    # חישוב מחיר כניסה ועדכון הכנסות
+  # Calculate price
     group_total_cost = 0
     for member in group.members:
-      # תמחור לפי גיל
+      
+      # Pricing by age
       if member.age >= 14:
         ticket_price = 150
       else:
         ticket_price = 75
 
-    # תוספת אקספרס לקבוצה (המחיר הוא לכל חבר בקבוצה)
-    if group.has_express:
-      ticket_price += 50
+      # Express addition for every ticket
+      if group.has_express:
+        ticket_price += 50
 
-    group_total_cost += ticket_price
+      group_total_cost += ticket_price
 
     self.total_revenue += group_total_cost
-    return group_total_cost
 
 
 
@@ -2338,7 +2335,7 @@ class Attraction(Facility):
         self.minAge = minAge
         self.queue=queue
 
-    def enter_ride(self, units_to_enter,clock):
+    def enter_ride(self, units_to_enter,time,guide_num = None):
       pass
 
     def exit_ride(self, units_finished):
@@ -2348,18 +2345,23 @@ class Attraction(Facility):
       #get specific capacity
       pass
 
-    def get_ride_time(self, isFirst = False):
+    def get_ride_time(self):
       pass  
-    def has_free_capacity(self) -> bool:
-      #at least one free spot at least one free server
+
+    def has_free_capacity(self,group,end_time) -> bool:
+      #at least one free spot for the given group and/or at least one free server
       pass
 
     def get_priority_session(self, simulation):
-      #find the relevant session TODO
-      pass
-    def calculate_units_for_entry(self, group) -> int:
-      #how much can I fit in the attraction from the group
-      pass
+      #find the relevant session 
+      activity_name = self.name
+      for (group, act_name), session in simulation.sessions.items():
+        if act_name == activity_name:
+            return session
+      return None
+
+      
+
 
 class LazyRiverAttraction(Attraction):
     def __init__(self,queue):
@@ -2387,12 +2389,6 @@ class LazyRiverAttraction(Attraction):
     def has_free_capacity(self) -> bool:
       return self.occupiedTubes < self.rideCapacity
 
-    def calculate_units_for_entry(self, group) -> int:
-      avail_tubes =self.rideCapacity-self.occupiedTubes
-      if avail_tubes*2>group.amount_of_members:
-        return group.amount_of_members
-      else:
-        return avail_tubes*2
 
       
 
@@ -2402,13 +2398,13 @@ class SingleWaterSlideAttraction(Attraction):
         super().__init__("Single Water Slide", adrenalinLevel=5, minAge=14, availableServers=2, rideCapacity=1,queue=queue)
         self.gate = timedelta(seconds=30) #new visitor every 30 seconds
         self.ride_time = timedelta(minutes=3) #takes excately 3 minutes
-        self.next_entry_time = [open_time, open_time] # 2 servers
+        self.next_entry_time = [datetime(2025,1,1,9,0,0), datetime(2025,1,1,9,0,0)] # 2 servers
         self.last_server_assigned = None
 
 
     def enter_ride(self, units_to_enter,clock):
       for server_id, t in enumerate(self.next_entry_time):
-            if clock >= t:
+            if clock >= t :
                 self.last_server_assigned = server_id
                 # reserve gate
                 self.next_entry_time[server_id] = clock + self.gate
@@ -2416,9 +2412,6 @@ class SingleWaterSlideAttraction(Attraction):
 
 
       
-
-    def exit_ride(self, units_finished):
-      pass
 
     def get_free_capacity(self) -> int:
       num = 0
@@ -2437,17 +2430,7 @@ class SingleWaterSlideAttraction(Attraction):
     def get_ride_time(self, isFirst = False):
       return self.ride_time
 
-    def calculate_units_for_entry(self, group) -> int:
-      return 1
-        
 
-    # Calculate how many people can be entered right now
-    def calculate_units_for_entry(self, group) -> int:
-      num = 0
-      for t in self.next_entry_time:  # Just iterate over times directly
-          if clock >= t:
-              num += 1
-      return num
 
 
 
@@ -2472,8 +2455,7 @@ class BigTubeSlideAttraction(Attraction):
     def has_free_capacity(self) -> bool:
       return self.availableServers > 0
 
-    def calculate_units_for_entry(self, group) -> int:
-      return group.amount_of_members
+
       
 
 class SmallTubeSlideAttraction(Attraction):
@@ -2497,10 +2479,7 @@ class SmallTubeSlideAttraction(Attraction):
     def has_free_capacity(self) -> bool:
       return self.availableServers > 0
 
-    def calculate_units_for_entry(self, group) -> int:
-      if group.amount_of_members <= self.tubeCapacity:
-        return group.amount_of_members  
-      return self.tubeCapacity
+
 
 class WavesPoolAttraction(Attraction):
     def __init__(self,queue):
@@ -2527,11 +2506,6 @@ class WavesPoolAttraction(Attraction):
     def has_free_capacity(self) -> bool:
       return self.occupied_spots < self.rideCapacity
 
-    def calculate_units_for_entry(self, group) -> int:
-      #how much can I fit in the attraction from the group
-      if self.check_spots(group.size):
-        return group.size
-      return self.rideCapacity - self.occupied_spots
 
 
 class KidsPoolAttraction(Attraction):
@@ -2561,11 +2535,6 @@ class KidsPoolAttraction(Attraction):
     def has_free_capacity(self) -> bool:
       return self.occupied_spots < self.rideCapacity
 
-    def calculate_units_for_entry(self, group) -> int:
-      #how much can I fit in the attraction from the group
-      if self.check_spots(group.units_for(self)):
-        return group.units_for(self)
-      return self.rideCapacity - self.occupied_spots
 
     
 
@@ -2608,7 +2577,7 @@ class SnorkelingTourAttraction(Attraction):
 class FoodStand:
   def __init__(self, name):
     self.name = name
-    self.bad_meal_prob = 0.1 # הסתברות למנה לא טובה (0.1 במצב רגיל)
+    self.bad_meal_prob = 0.1
     self.total_revenue = 0
     self.opening_hour = datetime(2025, 1, 1, 13, 0)
     self.closing_hour = datetime(2025, 1, 1, 15, 0)
@@ -2616,12 +2585,17 @@ class FoodStand:
   @staicmethod
   def decide_on_stand():
     rand = random.random()
-    if rand < 3/8:  # 3/8 prefer burger
-      return "burger"
-    elif 3/8 < rand < 5/8:  # 1/4 prefer pizza
-      return "pizza"
-    else:  # Prefer salad
-      return "salad"
+    # Hamburger case
+    if rand < 3/8:
+      return "Hamburger stand"
+    # Pizza case
+    elif 3/8 < rand < 5/8:
+      return "Pizza stand"
+    # Salad case
+    else:
+      return "Salad stand"
+
+
   def calculate_service_and_eating(self):
     # שירות: נורמלי (תוחלת 5, סטיית תקן 1.5)
     service_time = Algorithm.sample_normal(5, 1.5)
@@ -2738,23 +2712,25 @@ class Queue:
         return self.queue[index]
 
     def add_group(self, group: Any, current_time: datetime) -> None:
-        # Update weighted length before any structural change
-        self._update_weighted_length(current_time)
+      if isinstance (group, Teenagers):
+        group.time_entered_to_abandoned_activity = current_time
+      # Update weighted length before any structural change
+      self._update_weighted_length(current_time)
 
-        # Timestamp used for waiting/renege stats
-        group.entry_time = current_time
+      # Timestamp used for waiting/renege stats
+      group.entry_time = current_time
 
-        # Express insertion: after all existing express groups (FIFO within express)
-        if getattr(group, "has_express", False):
-            insert_pos = 0
-            for i, g in enumerate(self.queue):
-                if getattr(g, "has_express", False):
-                    insert_pos = i + 1
-                else:
-                    break
-            self.queue.insert(insert_pos, group)
-        else:
-            self.queue.append(group)
+      # Express insertion: after all existing express groups (FIFO within express)
+      if getattr(group, "has_express", False):
+          insert_pos = 0
+          for i, g in enumerate(self.queue):
+              if getattr(g, "has_express", False):
+                  insert_pos = i + 1
+              else:
+                  break
+          self.queue.insert(insert_pos, group)
+      else:
+          self.queue.append(group)
 
     def pop_next_group(self, current_time: datetime) -> Optional[Any]:
         # Pop FIFO head (express already ordered by add_group)
@@ -2764,6 +2740,8 @@ class Queue:
         self._update_weighted_length(current_time)
 
         group = self.queue.pop(0)
+        if isinstance (group, Teenagers) and group.last_abandoned_activity == self.facility_name and not group.has_express:
+            self.teenagers_reduce_rank(group, current_time)
         self._record_waiting_time(group, current_time)
         return group
 
@@ -2777,9 +2755,18 @@ class Queue:
                 self._update_weighted_length(current_time)
                 popped = self.queue.pop(i)
                 self._record_waiting_time(popped, current_time)
+                if isinstance (popped, Teenagers) and popped.last_abandoned_activity == self.facility_name and not popped.has_express:
+                  self.teenagers_reduce_rank(popped, current_time)
                 return popped
 
         return None
+
+
+    def teenagers_reduce_rank(popped, current_time):
+      time_waited = (current_time - popped.time_entered_to_abandoned_activity).total_seconds() / 60
+      amount_of_max_waits = time_waited // popped.max_wait_time
+      for i in range(int(amount_of_max_waits)):
+        popped.decrease_rank(0.8)
 
     def remove_group_on_renege(self, group: Any, current_time: datetime) -> bool:
         # Called by external RenegeEvent
@@ -2845,9 +2832,6 @@ class Event:
   def handle(self, simulation):
     pass
 
-  def updateRating(self):
-    pass
-
 class SingleVisitorArrivalEvent(Event):
   def __init__(self, time, group):
     super().__init__(time)
@@ -2855,7 +2839,7 @@ class SingleVisitorArrivalEvent(Event):
 
   def handle(self, simulation):
 
-    # handeling the current arrival
+    # Handeling the current arrival
     if self.time <= datetime(2025, 1, 1, 18, 30):
       if simulation.queue_parkEntrance.queue:
         simulation.queue_parkEntrance.add_to_park_entrance(self.group)
@@ -2863,19 +2847,20 @@ class SingleVisitorArrivalEvent(Event):
         service_time = self.time + timedelta(minutes=Algorithm.sample_continuous_uniform(0.5, 2))
         service_time += timedelta(minutes=Algorithm.sample_exponential(2))
         simulation.schedule_event(EndGettingTicketEvent(service_time, self.group))
+      # Creating a leaving event at 19:00
+      simulation.schedule_event(LeavingEvent(datetime(2025, 1, 1, 19, 00), self.group))
 
     # 1.5 a minute
     time_until_next_arrival = Algorithm.sample_exponential(1.5)
     next_arrival_time = self.time + timedelta(minutes=time_until_next_arrival)
 
-    # taking care of the next arrival event creation
+    # Taking care of the next arrival event creation
     group = SingleVisitor.CreateSingleVisitor()
-    Simulation.Park.visitor_groups.append(group)
     if next_arrival_time.time() <= datetime(2025, 1, 1, 18, 30):
         simulation.schedule_event(SingleVisitorArrivalEvent(next_arrival_time, group))
     else:
         return
-    # when next arrival time sampled is not within the arrival hours, the arrival event wil stop it's on creation
+    # When next arrival time sampled is not within the arrival hours, the arrival event wil stop it's on creation
 
 
 class FamilyArrivalEvent(Event):
@@ -2885,27 +2870,28 @@ class FamilyArrivalEvent(Event):
 
   def handle(self, simulation):
 
-    # handeling the current arrival
+    # Handeling the current arrival
     if datetime(2025, 1, 1, 09, 00) <= self.time <= datetime(2025, 1, 1, 12, 00):
-        if simulation.queue_parkEntrance.queue:
-          simulation.queue_parkEntrance.add_to_park_entrance(self.group)
-        else:
-          service_time = self.time + timedelta(minutes=Algorithm.sample_continuous_uniform(0.5, 2))
-          service_time += timedelta(minutes=Algorithm.sample_exponential(2))
-          simulation.schedule_event(EndGettingTicketEvent(service_time, self.group))
+      if simulation.queue_parkEntrance.queue:
+        simulation.queue_parkEntrance.add_to_park_entrance(self.group)
+      else:
+        service_time = self.time + timedelta(minutes=Algorithm.sample_continuous_uniform(0.5, 2))
+        service_time += timedelta(minutes=Algorithm.sample_exponential(2))
+        simulation.schedule_event(EndGettingTicketEvent(service_time, self.group))
+      # Creating a leaving event at familiy's leaving time
+      simulation.schedule_event(LeavingEvent(self.leave_time, self.group))
 
     # 1.5 a minute
     time_until_next_arrival = Algorithm.sample_exponential(1.5)
     next_arrival_time = self.time + timedelta(minutes=time_until_next_arrival)
 
-    # taking care of the next arrival event creation
+    # Taking care of the next arrival event creation
     group = Family.CreateFamily()
-    Simulation.Park.visitor_groups.append(group)
     if  next_arrival_time.time() <= datetime(2025, 1, 1, 12, 00):
         simulation.schedule_event(FamilyArrivalEvent(next_arrival_time, group))
     else:
         return
-    # when next arrival time sampled is not within the arrival hours, the arrival event wil stop it's on creation
+    # When next arrival time sampled is not within the arrival hours, the arrival event wil stop it's on creation
 
 
 class TeenagersArrivalEvent(Event):
@@ -2914,7 +2900,7 @@ class TeenagersArrivalEvent(Event):
     self.group = group
 
   def handle(self, simulation):
-    # handeling the current arrival
+    # Handeling the current arrival
     if datetime(2025, 1, 1, 10, 00) <= self.time <= datetime(2025, 1, 1, 16, 00):
       if simulation.queue_parkEntrance.queue:
         simulation.queue_parkEntrance.add_to_park_entrance(self.group)
@@ -2922,19 +2908,20 @@ class TeenagersArrivalEvent(Event):
         service_time = self.time + timedelta(minutes=Algorithm.sample_continuous_uniform(0.5, 2))
         service_time += timedelta(minutes=Algorithm.sample_exponential(2))
         simulation.schedule_event(EndGettingTicketEvent(service_time, self.group))
+      # Creating a leaving event at 19:00
+      simulation.schedule_event(LeavingEvent(datetime(2025, 1, 1, 19, 00), self.group))
 
     # 500 groups in a day (360 minutes) is a lambda of 18/25
     time_until_next_arrival = Algorithm.sample_exponential(18/25)
     next_arrival_time = self.time + timedelta(minutes=time_until_next_arrival)
 
-    # taking care of the next arrival event creation
+    # Taking care of the next arrival event creation
     group = Teenagers.CreateTeenagers()
-    Simulation.Park.visitor_groups.append(group)
     if next_arrival_time.time() <= datetime(2025, 1, 1, 16, 00):
         simulation.schedule_event(TeenagersArrivalEvent(next_arrival_time, group))
     else:
         return
-    # when next arrival time sampled is not within the arrival hours, the arrival event wil stop it's on creation
+  # When next arrival time sampled is not within the arrival hours, the arrival event wil stop it's on creation
 
 class EndGettingTicketEvent(Event):
   def __init__(self, time, group):
@@ -2942,135 +2929,133 @@ class EndGettingTicketEvent(Event):
     self.group = group
 
   def handle(self, simulation):
-    # schedule the next group to end getting tickets
+
+    # Charging the group for the tickets and bracelets
+    simulation.park.facilities["Park Entrance"].calculate_and_charge(self.group)
+
+    # Schedule the next group to end getting tickets
     if simulation.queue_parkEntrance.queue:
       service_time = self.time + timedelta(minutes=Algorithm.sample_continuous_uniform(0.5,2))
       service_time += timedelta(minutes=Algorithm.sample_exponential(2))
       simulation.schedule_event(EndGettingTicketEvent(service_time, simulation.queue_parkEntrance.pop_from_park_entrance()))
 
-    # Getting the next activity for the group
-    next_activity = simulation.get_best_next_activity(self.group, self.activity)
-
-    # Handle sending the group to the next activity
-    current_queue, current_ride = simulation.get_activity_queue_and_ride(next_activity)
-
-    # Checks if the queue to the ride is empty or not
-    if not current_queue and current_ride.is_idle(): # אין תור
-      current_ride.assign_server()
-      end_time = self.time + timedelta(minutes = current_ride.get_ride_time())
-      simulation.schedule_event(EndAttractionEvent(end_time, self.group, next_activity))
-
-    else:
-      current_queue.add_group(self.group, self.time)
-      # יוצרים אירוע נטישה בכל מקרה ואז מוחקים אותו מהיומן אירועים בסימולציה במידת הצורך
-      next_abandonment_time = self.time + timedelta(minutes = self.group.max_wait_time)
-      simulation.schedule_event(QueueAbandonmentEvent(next_abandonment_time, self.group, next_activity))
-
-class LeavingEvent(Event):
-    pass
+    # Routing the group to the next attractions
+    simulation.route_group_to_next(self.group, self.time)
 
 class EndAttractionEvent(Event):
   def __init__(self, time, group, activity):
     super().__init__(time)
     self.group = group
-    self.activity = activity
+    self.attraction = attraction
+    self.units_finished = units_finished
 
   def handle(self, simulation):
-    # Mark the current activity as 'visited' and update the rank
-    for member in self.group:
-      self.group.members.enter_successful(self.activity)
 
-    if (random.random() < 0.5):
-      self.group.increase_rank(self.simulation.park.facilities[activity].adrenalinLevel)
-    self.group.decrease_rank(0.1)
+    # Update the attraction that the units finished
+    self.attraction.exit_ride(self.units_finished)
 
-    # Handle lunch situation
-    added_food_time = 0
-    if datetime(2025, 1, 1, 13, 00) <= self.time.time() <= datetime(2025, 1, 1, 15, 00) and not self.group.decided_on_lunch:
-      self.group.decided_on_lunch = True
-      if (random.random() < 0.7):
-        current_stand = FoodStand.decide_on_stand()
-        added_food_time = simulation.park.facilities[current_stand].get_total_duration(self.group)
-        simulation.park.facilities[current_stand].process_meal(self.group)
+    # Update the group that just finished
+    session_key = (self.group, self.attraction.name)
+    session = simulation.sessions.get(session_key)
 
-    # Create splited family after communal activities
-    if isinstance (self.group, Family) and self.group.is_phase_finished(2): # Family that finished the last activity for all ages
-      self.group.decide_on_split()
-      for splittedFamily in self.group.split_groups:
-        # להכניס פה קוד כניסת כל משפחה מפוצלת אם בכלל לכל המתקנים
-        pass #TODO
-
-    # Getting the next activity for the group
-    next_activity = simulation.get_best_next_activity(self.group, self.activity)
-
-    # Handle leaving from park after completing all of the activities
-    if not isinstance (self.group, Family) or not isinstance (self.group, SplittedFamily):
-      if next_activity == None: # completed all activities
-        simulation.schedule_event(LeavingEvent(self.time + added_food_time, self.group))
-
-    # Handle sending the group to the next activity
-    current_queue, current_ride = simulation.get_activity_queue_and_ride(next_activity)
-
-    # Checks if the queue to the ride is empty or not
-    if not current_queue and current_ride.is_idle(): # אין תור
-      current_ride.assign_server()
-      end_time = self.time + timedelta(minutes = current_ride.get_ride_time())
-      simulation.schedule_event(EndAttractionEvent(end_time, self.group, next_activity))
-
+    # Update session
+    if session:
+      session.record_exit(self.units_finished)
+      is_group_completely_done = session.is_finished
     else:
-      current_queue.add_group(self.group, self.time)
-      # יוצרים אירוע נטישה בכל מקרה ואז מוחקים אותו מהיומן אירועים בסימולציה במידת הצורך
-      next_abandonment_time = self.time + timedelta(minutes = self.group.max_wait_time)
-      simulation.schedule_event(QueueAbandonmentEvent(next_abandonment_time, self.group, next_activity))
+      # In case of attractions with no splitting groups
+      is_group_completely_done = True
 
-  def updateRating(self):
-    pass
+    # Handle the next visitor in queue of the same attraction
+    simulation.service_next_visitors(self.attraction, self.time)
+
+    # When all of the group finished
+    if is_group_completely_done:
+
+      # Deleting the session in case that all the group finished
+      if session_key in simulation.sessions:
+        del simulation.sessions[session_key]
+
+      # Mark the current activity as 'visited' and update the rank
+      for member in self.group:
+        self.group.members.enter_successful(self.activity)
+
+      # Updating the rank
+      if (random.random() < 0.5):
+        self.group.increase_rank(self.attraction.adrenalinLevel)
+      else:
+        self.group.decrease_rank(0.1)
+
+      # Checking if we need to split
+      if isinstance (self.group, Family) and self.group.is_phase_finished(2) and not self.group.is_phase_finished(3): # Family that just finished the last activity for all ages
+        # Create splited family after communal activities
+        self.group.decide_on_split()
+        # Generating attractions for each group
+        for splittedFamily in self.group.split_groups:
+          simulation.route_group_to_next(splittedFamily, self.time)
+
+      # If we don't need to split
+      else:
+        # Checking on lunch
+        if datetime(2025, 1, 1, 13, 00) <= self.time.time() <= datetime(2025, 1, 1, 15, 00) and not self.group.decided_on_lunch:
+          self.group.decided_on_lunch = True
+          if (random.random() < 0.7):
+            current_stand = simulation.park.facilities[FoodStand.decide_on_stand()]
+            food_time = simulation.park.facilities[current_stand].get_total_duration(self.group)
+            simulation.schedule_event(EndLunchEvent(current_time, group, current_stand))
+        # Routing the current group to the next attractions / leaving
+        else:
+          simulation.route_group_to_next(self.group, self.time)
+
 
 class EndLunchEvent(Event):
-  def __init__(self, time, group):
+  def __init__(self, time, group, stand):
+    super().__init__(time)
+    self.group = group
+    self.stand = stand
+
+  def handle(self, simulation):
+
+    # Calculate lunch time
+    total_lunch_time = self.stand.get_total_duration(self,group)
+    
+    # Update rating if the group was unsatisfied and add income
+    FoodStand.process_meal(self, group)
+
+    # Routing the current group to the next attractions / leaving
+    simulation.route_group_to_next(self.group, self.time)
+
+
+class QueueAbandonmentEvent(Event):
+  def __init__(self, time, group, attraction):
+    super().__init__(time)
+    self.group = group
+    self.attraction = attraction
+
+  def handle(self, simulation):
+    
+    # Removing the group from the queue and decreasing rank
+    self.attraction.queue.remove_group_on_renege(self.group, self.time)
+    group.decrease_rank(0.8)
+        
+    # When it's teenagers
+    if isinstance(self.group, Teenagers):
+      if random.random() < 0.6:
+        group.buy_express(simulation)
+      else:
+        group.last_abandoned_activity = attraction.name
+
+    # Routing the current group to the next attractions / leaving
+    simulation.route_group_to_next(self.group, self.time)
+
+  class LeavingEvent(Event):
+    def __init__(self, time, group):
       super().__init__(time)
       self.group = group
 
-  def handle(self, simulation):
-    # Choose restaurant based on preferences
-   if FoodStand.decide_on_stand() == "burger":
-    total_lunch_time = HamburgerFoodStand.get_total_duration(self,group)
-   if FoodStand.decide_on_stand() == "pizza":
-    total_lunch_time = PizzaFoodStand.get_total_duration(self,group)
-   else:
-    total_lunch_time = SaladFoodStand.get_total_duration(self,group)
-
-    # Calculate actual end time
-    lunch_end_time = self.time + timedelta(minutes=total_lunch_time)
-
-    # Update rating if customer was unsatisfied (10% chance) and add income
-    FoodStand.process_meal(self, group)
-
-    # Get the next activity for the group
-    activity = self.group.get_next_activity(None)#not sure
-
-
-    def updateRating(self):
-        # Rating update is handled in handle() method
-        pass
-
-  def handle(self, simulation):
-    pass
-
-  def updateRating(self):
-    pass
-
-class QueueAbandonmentEvent(Event):
-  def __init__(self, time, group, activity):
-    super().__init__(time)
-    self.group = group
-    self.activity = activity
-
-    # לשים לב להוסיף בטיפול אירוע, כאשר נערים עוזבים וקונים צמיד, להוסיף את הקניית צמיד איכשהו להכנסות הכוללות בפארק
-
-class EndOfSimulation(Event):
-  def __init__(self):
-    pass
+    def handle(self, simulation):
+      # Purchasing pictures
+      self.group.purchase_pictures()
 
 class Session:
   def __init__(self, group, activity, arrival_time):
@@ -3108,11 +3093,44 @@ class Simulation:
     self.park = Park()
     self.clock = datetime(2025, 1, 1, 09, 00)
     self.event_diary =[] #minimum heap
+    self.sessions = {}  # {(group, activity_name): session_object}
+    self.total_waiting_time = 0
 
-  def run(self):
-    while self.event_diary:
-      event = heapq.heappop(self.event_diary)
-      event.handle(self)
+    def run(self):
+      firstSingle = SingleVisitor.CreateSingleVisitor()
+      firstFamily = Family.CreateFamily()
+      firstTeenager = Teenagers.CreateTeenagers()
+      simulation.schedule_event(SingleVisitorArrivalEvent(self.clock, firstSingle))
+      simulation.schedule_event(FamilyArrivalEvent(self.clock, firstFamily))
+      simulation.schedule_event(TeenagersArrivalEvent(self.clock + timedelta(hours=1), firstTeenager)) # Teenagers start coming at 10:00
+      while self.event_diary and self.clock <= datetime(2025, 1, 1, 19, 00):
+        event = heapq.heappop(self.event_diary)
+
+        # Removing the abandonment event if the group already did the attraction
+        if event._class.name_ == 'QueueAbandonmentEvent':
+          current_group = event.group
+          activity_completed = False
+          for row in guest.members[0].activity_diary:
+            if row[0] == event.attraction.name:
+              if row[1]:
+                activity_completed = True
+                break
+
+            if activity_completed:
+              continue
+
+        # Removing all of the events of the family after the leaving event
+        if event._class.name_ == 'LeavingEvent':
+          current_group = event.group
+          if isinstance (current_group, Family):
+            groups_to_remove = {current_family}
+            groups_to_remove.update(current_family.split_groups)
+            self.event_diary = [e for e in self.event_diary if e.group not in groups_to_remove]
+            # Re-arrange the heap
+            heapq.heapify(self.event_diary)
+
+        self.clock = event.time
+        event.handle(self)
 
   def schedule_event(self, event):
     heapq.heappush(self.event_diary, event)
@@ -3120,7 +3138,6 @@ class Simulation:
   # Gets the queue and the attraction based on the activity name
   def get_activity_queue_and_ride(self, activity):
     return self.park.queues[activity], self.park.facilities[activity]
-
 
   # Gets the next activity for the group
   def get_best_next_activity(self, group, last_activity_tried):
@@ -3142,57 +3159,113 @@ class Simulation:
     # Families in the second phase or single visitors seek for the shortest queue
     return self.find_shortest_in_list(candidates)
 
+
   def find_shortest_in_list(self, candidates):
     if not candidates:
         return None
-    # פונקציית עזר למציאת המינימום לפי אורך התור בפארק
+    # Finding the minimum according to queue length
     return min(candidates, key=lambda name: len(self.park.queues[name].queue))
 
-  def service_next_visitors(self, attraction, simulation):
-      # Pops the next session/group to enter the attraction and creating an event for them
-            
-      # As long as we have free space on the ride
-      while self.attraction.has_free_capacity():
-        next_group = None
-        units_to_enter = 0
+  def is_last_remaining_activity(self, group, activity_name):
+    diary = group.members[0].activity_diary
+    
+    # Taking only the activities that we didn't do
+    uncompleted_activities = [act for act in diary if not act[1]]
+
+    # Return True if the current activity is the only one that hasn't completed
+    return len(uncompleted_activities) == 1 and uncompleted_activities[0][0] == activity_name
+
+  def service_next_visitors(self, attraction, current_time):
+    # Pops the next session/group to enter the attraction and creating an event for them
+
+    next_group = None
+    candidate_session = self.attraction.get_priority_session(self)
+
+    if candidate_session:
+      next_group = candidate_session.group
+      size = candidate_session.remaining_to_start
+    else:
+      # Creating a new session
+      next_group = self.attraction.queue.pop_next_group(self.time)
+      if not next_group:
+        return
+      new_session = Session(next_group, self.attraction, self.time)
+      simulation.sessions[(next_group, self.attraction.name)] = new_session
+      size = candidate_session.remaining_to_start
+
+    # Getting the current time ride
+    service_duration = self.attraction.get_ride_time()
+    end_time = self.time + timedelta(minutes=service_duration)
+
+    has_capacity, guide_num = self.attraction.has_free_capacity(next_group, end_time)
+
+    # As long as we have free space on the ride
+    while has_capacity:
+
+      # Checks which case of size
+
+      # We need a fill
+      current_capacity = attraction.get_free_capacity()
+      if size < current_capacity:
+        # Enters the session to the attraction
+        candidate_session.record_entry(size)
+        simulation.schedule_event(EndAttractionEvent(end_time, next_group, self.attraction, size))
+        self.attraction.enter_ride(size, simulation.time,guide_num)
+
+        current_capacity-= size
         
-        # Getting the lastest session
-        candidate_session = self.attraction.get_priority_session()
-        
-        if candidate_session:
-          next_group = candidate_session.group
-          # How much space there is on the tube vs how much space there is on the session
-          units_to_enter = min(self.attraction.free_capacity, candidate_session.remaining_to_start)
-          candidate_session.record_entry(units_to_enter)
-        
-        # If there is no such session
-        elif not self.attraction.queue.is_empty():
-          next_group = self.attraction.queue.pop_next_group() # לבדוק עם דנה איך קוראים לפונקציה
-          
-          # Creating a new session
+
+        while self.attraction.queue.exist_group_of_size_or_smaller(current_capacity , self.time): #TODO in queue 
+          next_group = self.attraction.queue.choose_next_group(current_capacity , self.time) #TODO in queue
           new_session = Session(next_group, self.attraction, self.time)
           simulation.sessions[(next_group, self.attraction.name)] = new_session
-          
-          # Calculates how many units enter
-          units_to_enter = self.attraction.calculate_units_for_entry(next_group)
-          new_session.record_entry(units_to_enter)
-        
-        # There is no one to pull
-        else:
-          break
-              
-        # Making the next event
-        if units_to_enter > 0:
-          self.attraction.occupancy += units_to_enter
-          service_duration = self.attraction.get_ride_time()
-          end_time = self.time + timedelta(minutes=service_duration)
-          simulation.schedule_event(self.attraction(end_time, next_group, self.attraction, units_to_enter))
+          size = candidate_session.remaining_to_start
+          simulation.schedule_event(EndAttractionEvent(end_time, next_group, self.attraction, size))
+          self.attraction.enter_ride(size, simulation.time,guide_num)
+          current_capacity -= size
+
+
+      # We don't need a fill
+      elif size == self.attraction.get_free_capacity():
+        candidate_session.record_entry(size)
+        simulation.schedule_event(EndAttractionEvent(end_time, next_group, self.attraction, size))
+        self.attraction.enter_ride(size, simulation.time)
+
+
+      # The session's size is bigger than the capacity of the ride
+      else:
+        candidate_session.record_entry(self.attraction.get_free_capacity())
+        simulation.schedule_event(EndAttractionEvent(end_time, next_group, self.attraction, self.attraction.get_free_capacity()))
+        self.attraction.enter_ride(self.attraction.get_free_capacity(), simulation.time)
+
+      next_group = None
+      candidate_session = self.attraction.get_priority_session(self)
+
+      if candidate_session:
+        next_group = candidate_session.group
+        size = candidate_session.remaining_to_start
+      else:
+        # Creating a new session
+        next_group = self.attraction.queue.pop_next_group(self.time)
+        if not next_group:
+          return
+        new_session = Session(next_group, self.attraction, self.time)
+        simulation.sessions[(next_group, self.attraction.name)] = new_session
+        size = candidate_session.remaining_to_start
+
+      # Getting the current time ride
+      service_duration = self.attraction.get_ride_time()
+      end_time = self.time + timedelta(minutes=service_duration)
+      
+      has_capacity, guide_num = self.attraction.has_free_capacity(next_group, end_time)
+
+
   def route_group_to_next(self, group, current_time, next_activity=None):
     # Routing a group to it's next destenation - next activity or leaving
-    
+
     # Finding the next activity
     if next_activity is None:
-        next_activity = self.get_best_next_activity(group)
+      next_activity = self.get_best_next_activity(group)
 
     # In case of finishing all the activities (not for families or splitted families)
     if isinstance(group, SingleVisitor) or isinstance (group, Teenagers):
@@ -3203,21 +3276,28 @@ class Simulation:
     # Finiding the queue and attraction
     queue, attraction = self.get_activity_queue_and_ride(next_activity)
 
-    # If the group can enter immediately
+    # If the group can enter immediately 
     if attraction.can_enter_immediately(group):
       end_time = current_time + timedelta(minutes=attraction.get_ride_time())
-      self.schedule_event(EndAttractionEvent(end_time, group, attraction, group.units_for(next_activity)))
-    
+      size = group.units_for(next_activity)
+      self.schedule_event(EndAttractionEvent(end_time, group, attraction, size))
+      self.attraction.enter_ride(size, simulation.time,guide_num)
+      new_session = Session(group, attraction, self.time)
+      simulation.sessions[(group, attraction.name)] = new_session
+
     # If they can't enter immediately
     else:
       # Inserts the group to the queue
       queue.add_group(group, current_time)
-      
-      # Making an abandonment event (will be canceled if needed)
-      abandon_time = current_time + timedelta(minutes=group.max_wait_time)
-      self.schedule_event(QueueAbandonmentEvent(abandon_time, group, next_activity))
-      
-      # ניסיון "למשוך" מהתור (למקרה שהמתקן פנוי והתור היה ריק)
-      next_activity.try_pull_from_queue(self, current_time)
-      self.service_next_visitors(attraction, current_time)
 
+      # Making an abandonment event only if it's not the last activity of the group (will be canceled if needed)
+      if not self.is_last_remaining_activity(group, next_activity):
+        # If teenagers already abandoned this activity they won't abandon again
+        if isinstance(group, Teenagers) and group.last_abandoned_activity == next_activity:
+          pass
+        else:  
+          abandon_time = current_time + timedelta(minutes=group.max_wait_time)
+          self.schedule_event(QueueAbandonmentEvent(abandon_time, group, attraction))
+
+      # Keep the poping from queue
+      self.service_next_visitors(attraction, current_time)
