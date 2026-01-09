@@ -39,6 +39,7 @@ from collections import deque
 import heapq
 from __future__ import annotations
 from typing import Optional, List, Any
+GLOBAL_SEED = 42
 
 # %% [markdown] id="DePf7NHLKTE9"
 # # כתיבת קוד למציאת התפלגויות ומבחני טיב התאמה לזמני התגלשות במגלשות האבובים הקטנה והגדולה
@@ -2240,6 +2241,7 @@ class Teenagers(Group):
 class Park:
   def __init__(self):
     self.visitor_groups = []
+    self.current_visitor_group = []
     self.special_express_revenue = 0
     self.avg_rank = 0
     self.facilities = {} # a dictionary for all the park's facilities
@@ -3001,6 +3003,11 @@ class EndGettingTicketEvent(Event):
 
   def handle(self, simulation):
 
+    #marking the group as visitors in the park
+    simulation.park.visitor_groups.append(self.group)
+    simulation.park.current_visitor_group.append(self.group)
+
+
     # Charging the group for the tickets and bracelets
     simulation.park.facilities["Park Entrance"].calculate_and_charge(self.group)
 
@@ -3156,7 +3163,10 @@ class Session:
 
 # %% id="d2JfwrJ48KAg"
 class Simulation:
-  def __init__(self):
+  def __init__(self,seed=GLOBAL_SEED):
+    self.seed = seed
+    random.seed(self.seed)
+    np.random.seed(self.seed)
     self.park = Park()
     self.clock = datetime(2025, 1, 1, 9, 0)
     self.event_diary =[] #minimum heap
