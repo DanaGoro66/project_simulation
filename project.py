@@ -3129,6 +3129,8 @@ class LeavingEvent(Event):
     self.group = group
 
   def handle(self, simulation):
+    #group leaving
+    simulation.park.current_visitor_group.remove(self.group)
     # Purchasing pictures
     self.group.purchase_pictures()
 
