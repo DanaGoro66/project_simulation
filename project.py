@@ -2680,7 +2680,7 @@ class KidsPoolAttraction(Attraction):
 
 class SnorkelingTourAttraction(Attraction):
   def __init__(self, open_time: datetime, queue):
-    super().__init__("Snorkeling Tour", adrenalinLevel=3, minAge=10, available_servers=2, rideCapacity=30 , queue=queue)
+    super().__init__("Snorkeling Tour", adrenalinLevel=3, minAge=6, available_servers=2, rideCapacity=30 , queue=queue)
     self.guide_available_at = [open_time, open_time]
     self.collecting_size = [0, 0]
     self.guide_break = timedelta(minutes=30)
