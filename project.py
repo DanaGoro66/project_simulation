@@ -566,7 +566,7 @@ plt.show()
 # =====================================
 
 # KS for exponential – Small Slide
-ks_stat_small_exp, p_value_small_exp = kstest(small_data, 'expon', args=(0, 1/lambda_small_mle))
+ks_stat_small_exp, p_value_small_exp = kstest(small_data_minutes, 'expon', args=(0, 1/lambda_small_mle))
 
 decision_small = "Reject H0" if p_value_small_exp < alpha else "Fail to reject H0"
 
@@ -577,7 +577,7 @@ print(f"Decision at alpha={alpha}: {decision_small}")
 print("\n" + "="*60 + "\n")
 
 # KS for normal – Big Slide
-ks_stat_big_norm, p_value_big_norm = kstest(big_data, 'norm', args=(mu_big_mle, sigma_big_mle))
+ks_stat_big_norm, p_value_big_norm = kstest(big_data_minutes, 'norm', args=(mu_big_mle, sigma_big_mle))
 
 decision_big = "Reject H0" if p_value_big_norm < alpha else "Fail to reject H0"
 
@@ -2058,16 +2058,16 @@ class Family(Group):
       minAge = self.find_min_age()
       if minAge >= 12:
         for member in self.members:
-          member.activity_diary.extend(["Waves Pool", False], ["Small Tube Slide", False])
+          member.activity_diary.append(["Waves Pool", False], ["Small Tube Slide", False])
       if minAge >= 14:
         for member in self.members:
-          member.activity_diary.extend(["Single Water Slide", False])
+          member.activity_diary.append(["Single Water Slide", False])
       if minAge >= 6:
         for member in self.members:
-          member.activity_diary.extend(["Snorkeling Tour", False])
+          member.activity_diary.append(["Snorkeling Tour", False])
       if minAge <= 4:
         for member in self.members:
-          member.activity_diary.extend(["Kids Pool", False])
+          member.activity_diary.append(["Kids Pool", False])
       # לשים לב שצריך איפשהו בטיפול אירוע לשנות את הסדר של המתקנים לפי אורך תור
 
   def get_candidate_activities(self, last_activity_tried):
@@ -2230,16 +2230,16 @@ class SplittedFamily(Group):
     minAge = self.find_min_age()
     if minAge >= 12:
       for member in self.members:
-        member.activity_diary.extend(["Waves Pool", False], ["Small Tube Slide", False])
+        member.activity_diary.append(["Waves Pool", False], ["Small Tube Slide", False])
     if minAge >= 14:
       for member in self.members:
-        member.activity_diary.extend(["Single Water Slide", False])
+        member.activity_diary.append(["Single Water Slide", False])
     if minAge >= 6:
       for member in self.members:
-        member.activity_diary.extend(["Snorkeling Tour", False])
+        member.activity_diary.append(["Snorkeling Tour", False])
     if minAge <= 4:
       for member in self.members:
-        member.activity_diary.extend(["Kids Pool", False])
+        member.activity_diary.append(["Kids Pool", False])
     # לשים לב שצריך איפשהו בטיפול אירוע לשנות את הסדר של המתקנים לפי אורך תור
 
   def get_candidate_activities(self, last_activity_tried):
@@ -2951,7 +2951,7 @@ class Queue:
 
 
     def teenagers_reduce_rank(self, group, current_time):
-      time_waited = (current_time - group.time_entered_to_abandoned_activity).total_seconds() / 60.0
+      time_waited = current_time - group.time_entered_to_abandoned_activity 
       amount_of_max_waits = time_waited // group.max_wait_time
       for _ in range(int(amount_of_max_waits)):
           group.decrease_rank(0.8)
@@ -3702,7 +3702,7 @@ class Simulation:
         if isinstance(group, Teenagers) and getattr(group, "last_abandoned_activity", None) == next_activity:
             pass
         else:
-            abandon_time = current_time + timedelta(minutes=group.max_wait_time)
+            abandon_time = current_time + group.max_wait_time
             self.schedule_event(QueueAbandonmentEvent(abandon_time, group, attraction))
 
     # 7) try to serve now if possible
