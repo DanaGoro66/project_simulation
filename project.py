@@ -23,6 +23,7 @@ print("sync test from py")
 
 
 # %% id="9thXDFNGeV8Y"
+from __future__ import annotations
 import math
 import queue
 from re import S
@@ -37,7 +38,6 @@ from google.colab import files
 from datetime import time, datetime, timedelta
 from collections import deque
 import heapq
-from __future__ import annotations
 from typing import Optional, List, Any
 GLOBAL_SEED = 42
 
@@ -2353,6 +2353,7 @@ class Park:
     for vg in self.visitor_groups:
       for m in vg.members:
         amount_of_visitors += 1
+    return amount_of_visitors
 
   def calc_avg_ranking(self):
     if not self.visitor_groups:
@@ -2363,7 +2364,7 @@ class Park:
     for vg in self.visitor_groups:
       for m in vg.members:
         total_rank += m.rank
-    self.avg_rank = total_rank / self.cacl_amount_of_visitors
+    self.avg_rank = total_rank / self.cacl_amount_of_visitors()
     return self.avg_rank
 
   def calc_total_revenue(self):
@@ -2526,7 +2527,7 @@ class SingleWaterSlideAttraction(Attraction):
     def enter_ride(self,group, units_to_enter, time):
       # Case of 2
       if units_to_enter == 2:
-        for i in (len(self.slide_status)):
+        for i in range(len(self.slide_status)):
           self.slides_capacity[i] -= 1
           if self.slides_capacity[i] == 0:
             self.slide_status[i] = False
@@ -2545,7 +2546,7 @@ class SingleWaterSlideAttraction(Attraction):
     def exit_ride(self,group, units_finished):
       # Case of 2
       if units_finished == 2:
-        for i in (len(self.slide_status)):
+        for i in range(len(self.slide_status)):
           if not self.slide_status[i]:
             self.slide_status[i] = True
           self.slides_capacity[i] += 1
@@ -3121,8 +3122,8 @@ class FamilyArrivalEvent(Event):
       # Creating a leaving event at family's leaving time
       simulation.schedule_event(LeavingEvent(self.group.leave_time, self.group))
 
-    # 1.5 a minute
-    time_until_next_arrival = Algorithm.sample_exponential(1.5)
+    # 2/3 a minute
+    time_until_next_arrival = Algorithm.sample_exponential(2/3)
     next_arrival_time = self.time + timedelta(minutes=time_until_next_arrival)
 
     # Taking care of the next arrival event creation
