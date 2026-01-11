@@ -488,7 +488,7 @@ class Family(Group):
   def create_splitted_family(self, sub_groups):
     # Create Splits
     for group in sub_groups:
-      split_group = SplittedFamily(len(group), self.members, self)
+      split_group = SplittedFamily(len(group), group, self)
       self.split_groups.append(split_group)
 
 
@@ -538,6 +538,7 @@ class SplittedFamily(Group):
 class Teenagers(Group):
   def __init__(self):
     super().__init__(Algorithm.sample_number_of_teenagers(), 20)
+    self.last_abandoned_activity = None
 
   @staticmethod
   def CreateTeenagers():
@@ -1624,10 +1625,10 @@ class Simulation:
 
   def run(self):
     firstSingle = SingleVisitor.CreateSingleVisitor()
-    #firstFamily = Family.CreateFamily()
+    firstFamily = Family.CreateFamily()
     #firstTeenager = Teenagers.CreateTeenagers()
     self.schedule_event(SingleVisitorArrivalEvent(self.clock, firstSingle))
-    #self.schedule_event(FamilyArrivalEvent(self.clock, firstFamily))
+    self.schedule_event(FamilyArrivalEvent(self.clock, firstFamily))
     #self.schedule_event(TeenagersArrivalEvent(self.clock + timedelta(hours=1), firstTeenager)) # Teenagers start coming at 10:00
     while self.event_diary and self.clock <= datetime(2025, 1, 1, 19, 00):
       event = heapq.heappop(self.event_diary)
