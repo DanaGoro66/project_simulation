@@ -2055,7 +2055,7 @@ class Family(Group):
       for group in self.split_groups:
         group.generate_activity_diary()
     else:
-      minAge = self.find_min_age
+      minAge = self.find_min_age()
       if minAge >= 12:
         for member in self.members:
           member.activity_diary.extend(["Waves Pool", False], ["Small Tube Slide", False])
@@ -2692,7 +2692,7 @@ class KidsPoolAttraction(Attraction):
 
 class SnorkelingTourAttraction(Attraction):
   def __init__(self, open_time: datetime, queue):
-    super().__init__("Snorkeling Tour", adrenalinLevel=3, minAge=10, availableServers=2, rideCapancity=30 , queue=queue)
+    super().__init__("Snorkeling Tour", adrenalinLevel=3, minAge=10, availableServers=2, rideCapacity=30 , queue=queue)
     self.guide_available_at = [open_time, open_time]
     self.collecting_size = [0, 0]
     self.guide_break = timedelta(minutes=30)
@@ -2710,7 +2710,7 @@ class SnorkelingTourAttraction(Attraction):
     size = len(group.members)
     for gid in (0, 1):
       #check if there is an available guide with enough space left
-      if start_time >= self.guide_available_at[gid] and self.collecting_size[gid] + size <= self.max:
+      if start_time >= self.guide_available_at[gid] and self.collecting_size[gid] + size <= self.rideCapacity:
         return gid
     return None
 
@@ -2730,14 +2730,13 @@ class SnorkelingTourAttraction(Attraction):
     return False  
         
   def can_enter_immediately(self, group):
-    return len(self.queue) == 0 and self.find_free_guide(group) != None, self.find_free_guide(group)
+    return len(self.queue.queue) == 0 and self.find_free_guide(group) != None, self.find_free_guide(group)
 
   def get_free_capacity(self):
     return self.ride_capacity
 
   def enter_ride(self, session, size, time, guide_num):
     self.collecting_size[guide_num] += size
-
 
 # %% [markdown] id="A3CWWPaX6YjY"
 # #Foodstand Classes
@@ -3301,7 +3300,7 @@ class LeavingEvent(Event):
     self.group.purchase_pictures()
 
 class Session:
-  def __init__(self, group, attraction, arrival_time):
+  def __init__(self, group, attraction, arrival_time:datetime):
     self.group = group
     self.attraction = attraction
     self.total_units = group.amount_of_members # כמות האנשים בקבוצה המקורית
@@ -3380,7 +3379,7 @@ class Simulation:
 
       self.clock = event.time
       event.handle(self)
-    self.print_report(sim_end_time=self.clock)
+    self.print_report()
 
 
   def schedule_event(self, event):
