@@ -2262,7 +2262,7 @@ class Teenagers(Group):
     super().__init__(Algorithm.sample_number_of_teenagers(), 20)
 
   @staticmethod
-  def createTeenagers():
+  def CreateTeenagers():
       new_teenage_group = Teenagers()
       # Create teenager members
       for i in range(new_teenage_group.amount_of_members):
