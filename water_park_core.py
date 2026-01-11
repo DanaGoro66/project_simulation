@@ -498,10 +498,12 @@ class Family(Group):
 
 
   def create_splitted_family(self, sub_groups):
+    created = []
     # Create Splits
     for group in sub_groups:
       split_group = SplittedFamily(len(group), group, self)
-      self.split_groups.append(split_group)
+      created.append(split_group)
+    return created
 
 
 class SplittedFamily(Group):
@@ -1145,7 +1147,7 @@ class Queue:
     # Park entrance buffer 
     # ------------------------------------------------------------
     def add_to_park_entrance(self, group: Any, current_time: datetime) -> None:
-      self.arrivals_count += 1
+      self.arrivals_count += int(getattr(group, "amount_of_members", 1))
       group.entrance_entry_time = current_time
       self.queue.append(group)
 
@@ -1257,15 +1259,6 @@ class Queue:
 
         self.renege_count += 1
         self.queue.remove(group)
-
-        try:
-            if not isinstance(group, Teenagers):
-                if hasattr(group, "decrease_rank"):
-                    group.decrease_rank(0.8)
-        except NameError:
-            # If Teenagers is not defined in this module scope, apply the decrease (safe fallback)
-            if hasattr(group, "decrease_rank"):
-                group.decrease_rank(0.8)
 
         return True
 
@@ -1642,20 +1635,16 @@ class Simulation:
       event = heapq.heappop(self.event_diary)
 
       # Removing the abandonment event if the group already did the attraction
-      if type(event).__name__ == 'QueueAbandonmentEvent':
-        current_group = event.group
-        activity_completed = False
-        for row in current_group.members[0].activity_diary:
-          if row[0] == event.attraction.name:
-            if row[1]:
-              activity_completed = True
-              break
+            # Removing the abandonment event if the group already did the attraction
+      if isinstance(event, QueueAbandonmentEvent):
+        diary = event.group.members[0].activity_diary
+        already_done = any(act_name == event.attraction.name and done for act_name, done in diary)
+        if already_done:
+          continue  # SKIP this abandonment event entirely
 
-          if activity_completed:
-            continue
 
       # Removing all of the events of the family after the leaving event
-      if type(event).__name__ == 'LeavingEvent':
+      if isinstance(event, LeavingEvent):
         current_group = event.group
         if isinstance (current_group, Family):
           groups_to_remove = {current_group}
@@ -1988,7 +1977,7 @@ class Simulation:
 
     # Increment arrival count IMMEDIATELY upon routing.
     # This ensures that "walk-ins" (who skip the queue) are still counted as arrivals.
-    queue.arrivals_count += 1 
+    queue.arrivals_count += getattr(group, "amount_of_members", 0) 
 
 
     # 4) can enter immediately?
