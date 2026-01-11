@@ -58,11 +58,23 @@ xls.sheet_names
 big_slide_df   = pd.read_excel(xls, xls.sheet_names[0])
 small_slide_df = pd.read_excel(xls, xls.sheet_names[1])
 
-# Taking the time column only
-big_data   = big_slide_df['time_minutes'].values
-small_data = small_slide_df['time_minutes'].values
+# Taking the time column only and converting to timedelta objects
+big_data   = [timedelta(minutes=float(val)) for val in big_slide_df['time_minutes'].values]
+small_data = [timedelta(minutes=float(val)) for val in small_slide_df['time_minutes'].values]
 
 alpha = 0.1  # Statistical significance (90% confidence level)
+
+# =====================================
+# Helper Functions for Time Conversion
+# =====================================
+
+def timedelta_to_minutes(td_list):
+    """Convert list of timedelta objects to minutes for plotting/statistics"""
+    return [td.total_seconds() / 60 for td in td_list]
+
+def minutes_to_timedelta(minutes_list):
+    """Convert list of minutes to timedelta objects"""
+    return [timedelta(minutes=float(val)) for val in minutes_list]
 
 # =====================================
 # 2. Graphs
@@ -72,9 +84,15 @@ def histogram_and_density_line(data, label, ax, candidate_dist=''):
     unified_blue = "#80CEED"
     unified_pink = "#FCB8D6"
 
+    # Convert timedelta to minutes for plotting
+    if data and isinstance(data[0], timedelta):
+        data_minutes = timedelta_to_minutes(data)
+    else:
+        data_minutes = data
+
     # Histogram
     ax.hist(
-        data,
+        data_minutes,
         bins=20,
         edgecolor='black',
         alpha=0.7,
@@ -84,7 +102,7 @@ def histogram_and_density_line(data, label, ax, candidate_dist=''):
     )
 
     # Density line
-    pd.Series(data).plot(
+    pd.Series(data_minutes).plot(
         kind='kde',
         color=unified_pink,
         label='Density Line',
@@ -97,23 +115,33 @@ def histogram_and_density_line(data, label, ax, candidate_dist=''):
     if candidate_dist:
         title += f" (candidate: {candidate_dist})"
     ax.set_title(title, color='dimgray')
-    ax.set_xlabel("time_minutes", color='dimgray')
+    ax.set_xlabel("Time (minutes)", color='dimgray')
     ax.set_ylabel("Density", color='dimgray')
     ax.set_xlim(left=0)
     ax.legend()
 
-# QQ
+## QQ
 def QQ_plot_exponential(data, lambda_mle, ax):
     unified_blue = "#80CEED"
+    # Convert timedelta to minutes for probplot
+    if data and isinstance(data[0], timedelta):
+        data_minutes = timedelta_to_minutes(data)
+    else:
+        data_minutes = data
     # expon: (loc, scale) = (0, 1/lambda)
-    probplot(data, dist="expon", sparams=(0, 1/lambda_mle), plot=ax)
+    probplot(data_minutes, dist="expon", sparams=(0, 1/lambda_mle), plot=ax)
     ax.get_lines()[1].set_color(unified_blue)
     ax.set_title("QQ Plot – Exponential", color='dimgray')
 
 def QQ_plot_normal(data, mu_mle, sigma_mle, ax):
     unified_blue = "#80CEED"
+    # Convert timedelta to minutes for probplot
+    if data and isinstance(data[0], timedelta):
+        data_minutes = timedelta_to_minutes(data)
+    else:
+        data_minutes = data
     # norm: (loc, scale) = (mu, sigma)
-    probplot(data, dist="norm", sparams=(mu_mle, sigma_mle), plot=ax)
+    probplot(data_minutes, dist="norm", sparams=(mu_mle, sigma_mle), plot=ax)
     ax.get_lines()[1].set_color(unified_blue)
     ax.set_title("QQ Plot – Normal", color='dimgray')
 
@@ -122,8 +150,14 @@ def CDF_plot_exponential(data, lambda_mle, ax):
     unified_pink = "#FCB8D6"
     unified_blue = "#80CEED"
 
-    sorted_data = np.sort(data)
-    n = len(data)
+    # Convert timedelta to minutes for plotting
+    if data and isinstance(data[0], timedelta):
+        data_minutes = timedelta_to_minutes(data)
+    else:
+        data_minutes = data
+        
+    sorted_data = np.sort(data_minutes)
+    n = len(data_minutes)
     empirical_cdf_vals = np.arange(1, n+1) / n
     cdf_fitted = expon.cdf(sorted_data, loc=0, scale=1/lambda_mle)
 
@@ -143,7 +177,7 @@ def CDF_plot_exponential(data, lambda_mle, ax):
         color=unified_pink
     )
     ax.set_title("CDF Comparison – Exponential", color='dimgray')
-    ax.set_xlabel("time_minutes", color='dimgray')
+    ax.set_xlabel("Time (minutes)", color='dimgray')
     ax.set_ylabel("Cumulative Probability", color='dimgray')
     ax.legend(loc='lower right')
 
@@ -151,8 +185,14 @@ def CDF_plot_normal(data, mu_mle, sigma_mle, ax):
     unified_pink = "#FCB8D6"
     unified_blue = "#80CEED"
 
-    sorted_data = np.sort(data)
-    n = len(data)
+    # Convert timedelta to minutes for plotting
+    if data and isinstance(data[0], timedelta):
+        data_minutes = timedelta_to_minutes(data)
+    else:
+        data_minutes = data
+        
+    sorted_data = np.sort(data_minutes)
+    n = len(data_minutes)
     empirical_cdf_vals = np.arange(1, n+1) / n
     cdf_fitted = norm.cdf(sorted_data, loc=mu_mle, scale=sigma_mle)
 
@@ -172,7 +212,7 @@ def CDF_plot_normal(data, mu_mle, sigma_mle, ax):
         color=unified_pink
     )
     ax.set_title("CDF Comparison – Normal", color='dimgray')
-    ax.set_xlabel("time_minutes", color='dimgray')
+    ax.set_xlabel("Time (minutes)", color='dimgray')
     ax.set_ylabel("Cumulative Probability", color='dimgray')
     ax.legend(loc='lower right')
 
@@ -180,8 +220,9 @@ def CDF_plot_normal(data, mu_mle, sigma_mle, ax):
 # 3. Small Slide – Exponential (graphs & parameters)
 # =====================================
 
-# MLE for exponential
-lambda_small_mle = 1 / np.mean(small_data)
+# MLE for exponential - convert timedelta to minutes for calculations
+small_data_minutes = [td.total_seconds() / 60 for td in small_data]
+lambda_small_mle = 1 / np.mean(small_data_minutes)
 theoretical_mean_small = 1 / lambda_small_mle
 
 print("=== SMALL SLIDE – Exponential model ===")
@@ -203,9 +244,10 @@ plt.show()
 # 4. Big Slide – Normal (graphs & parameters)
 # =====================================
 
-# MLE for normal
-mu_big_mle    = np.mean(big_data)
-sigma_big_mle = np.std(big_data, ddof=0)
+# MLE for normal - convert timedelta to minutes for calculations
+big_data_minutes = [td.total_seconds() / 60 for td in big_data]
+mu_big_mle    = np.mean(big_data_minutes)
+sigma_big_mle = np.std(big_data_minutes, ddof=0)
 var_big_mle   = sigma_big_mle**2
 
 print("=== BIG SLIDE – Normal model ===")
@@ -1863,7 +1905,11 @@ class Group:
     self.amount_of_members = amount_of_members
     self.members = []
     self.pictures_cost = 0
-    self.max_wait_time = max_wait_time
+    # Convert max_wait_time to timedelta if it's not already
+    if isinstance(max_wait_time, timedelta):
+      self.max_wait_time = max_wait_time
+    else:
+      self.max_wait_time = timedelta(minutes=float(max_wait_time))
     self.decided_on_lunch = False
 
   def increase_rank(self, adrenaline_level):
@@ -3260,7 +3306,11 @@ class Session:
     self.total_units = group.amount_of_members # כמות האנשים בקבוצה המקורית
     self.remaining_to_start = group.units_for(attraction.name) # כמה אנשים מהקבוצה עוד לא נכנסו למתקן
     self.in_service = 0 # כמה אנשים מהקבוצה נמצאים כרגע בתוך המתקן
-    self.arrival_time = arrival_time # זמן ההגעה לתור (לצורך חישובי סטטיסטיקה של המתנה)
+    # Convert arrival_time to timedelta if it's not already
+    if isinstance(arrival_time, timedelta):
+      self.arrival_time = arrival_time
+    else:
+      self.arrival_time = timedelta(minutes=float(arrival_time)) # זמן ההגעה לתור (לצורך חישובי סטטיסטיקה של המתנה)
 
   def is_finished(self):
     #הקבוצה סיימה את המתקן רק כשכולם נכנסו וכולם יצאו
