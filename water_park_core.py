@@ -241,7 +241,7 @@ class Group:
     if activity== "Kids Pool":
       kidsNum=0
       for member in self.members:
-        if member.age < 4:
+        if member.age <= 4:
           kidsNum+=1
       return kidsNum 
     
@@ -558,7 +558,7 @@ class Teenagers(Group):
 
   def buy_express(self, simulation):
     self.has_express = True
-    simulation.park.special_express_revenue = self.amount_of_members * 50
+    simulation.park.special_express_revenue += self.amount_of_members * 50
 
   def generate_activity_diary(self):
     # Generate for teenagers only the rides with 3 or more waves
@@ -566,7 +566,7 @@ class Teenagers(Group):
     random.shuffle(self.members[0].activity_diary)
 
     # Makes sure all the teenagers have the same diary
-    for i in range(1, len(self.members) - 1):
+    for i in range(1, len(self.members)):
       self.members[i].activity_diary = copy.deepcopy(self.members[0].activity_diary)
 
   def get_candidate_activities(self, last_activity_tried):
@@ -1176,11 +1176,8 @@ class Queue:
         group.time_entered_to_abandoned_activity = current_time
       # Update weighted length before any structural change
       self._update_weighted_length(current_time)
-      self.arrivals_count += 1
-
       # Timestamp used for waiting/renege stats
       group.entry_time = current_time
-
       # Express insertion: after all existing express groups (FIFO within express)
       if getattr(group, "has_express", False):
           insert_pos = 0
@@ -1626,10 +1623,10 @@ class Simulation:
   def run(self):
     firstSingle = SingleVisitor.CreateSingleVisitor()
     firstFamily = Family.CreateFamily()
-    #firstTeenager = Teenagers.CreateTeenagers()
+    firstTeenager = Teenagers.CreateTeenagers()
     self.schedule_event(SingleVisitorArrivalEvent(self.clock, firstSingle))
     self.schedule_event(FamilyArrivalEvent(self.clock, firstFamily))
-    #self.schedule_event(TeenagersArrivalEvent(self.clock + timedelta(hours=1), firstTeenager)) # Teenagers start coming at 10:00
+    self.schedule_event(TeenagersArrivalEvent(self.clock + timedelta(hours=1), firstTeenager)) # Teenagers start coming at 10:00
     while self.event_diary and self.clock <= datetime(2025, 1, 1, 19, 00):
       event = heapq.heappop(self.event_diary)
 
@@ -1942,6 +1939,12 @@ class Simulation:
 
     # 3) locate queue + attraction
     queue, attraction = self.get_activity_queue_and_ride(next_activity)
+
+
+    # Increment arrival count IMMEDIATELY upon routing.
+    # This ensures that "walk-ins" (who skip the queue) are still counted as arrivals.
+    queue.arrivals_count += 1 
+
 
     # 4) can enter immediately?
     can_enter_now = False
