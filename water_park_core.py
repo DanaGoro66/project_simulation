@@ -503,7 +503,8 @@ class Family(Group):
     for group in sub_groups:
       split_group = SplittedFamily(len(group), group, self)
       created.append(split_group)
-    return created
+    self.split_groups.extend(created)
+    return self.split_groups
 
 
 class SplittedFamily(Group):
