@@ -248,6 +248,15 @@ class Group:
     # כברירת מחדל לכל שאר המתקנים - כל הקבוצה נכנסת
     return self.amount_of_members
 
+  def add_activity_if_not_exists(self, activity_name):
+    """Helper method to add activity to diary only if it doesn't already exist"""
+    has_activity = any(activity_name in act for act in self.members[0].activity_diary)
+    if not has_activity:
+      for member in self.members:
+        member.activity_diary.append([activity_name, False])
+      return True  # Added successfully
+    return False  # Already existed
+
 
 class SingleVisitor(Group):
   def __init__(self, age = 35):
@@ -313,6 +322,9 @@ class Family(Group):
       child = Visitor(rank=10, age=child_age, group=new_family)
       new_family.members.append(child)
 
+    
+    
+
     # Addition: Generate the activity diary for the family
     new_family.generate_activity_diary()
 
@@ -329,23 +341,20 @@ class Family(Group):
       self.members[i].activity_diary = copy.deepcopy(self.members[0].activity_diary)
 
   def generate_final_activity_diary(self):
-    if self.split:
+    if self.split and self.split_groups:
       for group in self.split_groups:
         group.generate_activity_diary()
     else:
       minAge = self.find_min_age()
       if minAge >= 12:
-        for member in self.members:
-          member.activity_diary.extend([["Waves Pool", False], ["Small Tube Slide", False]])
+        self.add_activity_if_not_exists("Waves Pool")
+        self.add_activity_if_not_exists("Small Tube Slide")
       if minAge >= 14:
-        for member in self.members:
-          member.activity_diary.append(["Single Water Slide", False])
+        self.add_activity_if_not_exists("Single Water Slide")
       if minAge >= 6:
-        for member in self.members:
-          member.activity_diary.append(["Snorkeling Tour", False])
+        self.add_activity_if_not_exists("Snorkeling Tour")
       if minAge <= 4:
-        for member in self.members:
-          member.activity_diary.append(["Kids Pool", False])
+        self.add_activity_if_not_exists("Kids Pool")
       # לשים לב שצריך איפשהו בטיפול אירוע לשנות את הסדר של המתקנים לפי אורך תור
 
   def get_candidate_activities(self, last_activity_tried):
@@ -354,11 +363,14 @@ class Family(Group):
 
     # We're still on phase 1
     if not all(act[1] for act in phase1):
-      return [act[0] for act in phase1 if not act[1] and act[0] != last_activity_tried]
+      candidates = [act[0] for act in phase1 if not act[1] and act[0] != last_activity_tried]
 
     # We're after the decision on splitting
-    phase2 = self.members[0].activity_diary[2:]
-    return [act[0] for act in phase2 if not act[1] and act[0] != last_activity_tried]
+    else:
+      phase2 = self.members[0].activity_diary[2:]
+      candidates = [act[0] for act in phase2 if not act[1] and act[0] != last_activity_tried]
+    
+    return candidates
 
 
   def decide_on_split(self):
@@ -507,18 +519,14 @@ class SplittedFamily(Group):
   def generate_activity_diary(self):
     minAge = self.find_min_age()
     if minAge >= 12:
-      for member in self.members:
-        member.activity_diary.extend([["Waves Pool", False], ["Small Tube Slide", False]])
+      self.add_activity_if_not_exists("Waves Pool")
+      self.add_activity_if_not_exists("Small Tube Slide")
     if minAge >= 14:
-      for member in self.members:
-        member.activity_diary.append(["Single Water Slide", False])
+      self.add_activity_if_not_exists("Single Water Slide")
     if minAge >= 6:
-      for member in self.members:
-        member.activity_diary.append(["Snorkeling Tour", False])
+      self.add_activity_if_not_exists("Snorkeling Tour")
     if minAge <= 4:
-      for member in self.members:
-        member.activity_diary.append(["Kids Pool", False])
-    # לשים לב שצריך איפשהו בטיפול אירוע לשנות את הסדר של המתקנים לפי אורך תור
+      self.add_activity_if_not_exists("Kids Pool")
 
   def get_candidate_activities(self, last_activity_tried):
 
@@ -1508,12 +1516,14 @@ class EndAttractionEvent(Event):
         self.group.decrease_rank(0.1)
 
       # Checking if we need to split
-      if isinstance (self.group, Family) and self.group.is_phase_finished(2) and not self.group.is_phase_finished(3): # Family that just finished the last activity for all ages
-        # Create splitted family after communal activities
+      if isinstance (self.group, Family) and self.group.is_phase_finished(2): # Family that just finished the first 2 activities
         self.group.decide_on_split()
         # Generating attractions for each group
-        for splittedFamily in self.group.split_groups:
-          simulation.route_group_to_next(splittedFamily, self.time)
+        if self.group.split_groups:
+          for splittedFamily in self.group.split_groups:
+            simulation.route_group_to_next(splittedFamily, self.time)
+        else:
+          simulation.route_group_to_next(self.group, self.time)
 
       # If we don't need to split
       else:
@@ -1587,6 +1597,7 @@ class Session:
     self.remaining_to_start = group.units_for(attraction.name) # כמה אנשים מהקבוצה עוד לא נכנסו למתקן
     self.in_service = 0 # כמה אנשים מהקבוצה נמצאים כרגע בתוך המתקן
     self.arrival_time = arrival_time # זמן ההגעה לתור (לצורך חישובי סטטיסטיקה של המתנה)
+    self.assigned_slide = 0
 
   def is_finished(self):
     #הקבוצה סיימה את המתקן רק כשכולם נכנסו וכולם יצאו
@@ -1648,7 +1659,8 @@ class Simulation:
         current_group = event.group
         if isinstance (current_group, Family):
           groups_to_remove = {current_group}
-          groups_to_remove.update(current_group.split_groups)
+          if current_group.split_groups:
+            groups_to_remove.update(current_group.split_groups)
           self.event_diary = [e for e in self.event_diary if e.group not in groups_to_remove]
           # Re-arrange the heap
           heapq.heapify(self.event_diary)
@@ -1827,6 +1839,32 @@ class Simulation:
         return (sum(values) / len(values)) if values else None
 
     # -------------------------
+    # Visitor Statistics
+    # -------------------------
+    total_visitors = 0
+    single_visitors = 0
+    family_members = 0
+    teenager_members = 0
+    families_count = 0
+    teenagers_count = 0
+    single_visitors_count = 0
+    
+    # Count visitors by group type
+    for group in park.visitor_groups:
+        group_size = len(group.members)
+        total_visitors += group_size
+        
+        if isinstance(group, SingleVisitor):
+            single_visitors += group_size
+            single_visitors_count += 1
+        elif isinstance(group, Family):
+            family_members += group_size
+            families_count += 1
+        elif isinstance(group, Teenagers):
+            teenager_members += group_size
+            teenagers_count += 1
+
+    # -------------------------
     # Revenue
     # -------------------------
     entrance_rev = park.facilities["Park Entrance"].total_revenue
@@ -1898,6 +1936,13 @@ class Simulation:
         print("3) Avg Waiting Time (all queues incl. entrance): N/A")
     else:
         print(f"3) Avg Waiting Time (all queues incl. entrance): {overall_avg_wait:.2f} min")
+
+    # Visitor statistics
+    print("\nVISITOR STATISTICS")
+    print(f"- Total Visitors: {total_visitors}")
+    print(f"- Single Visitors: {single_visitors} people ({single_visitors_count} groups)")
+    print(f"- Family Members: {family_members} people ({families_count} families)")
+    print(f"- Teenagers: {teenager_members} people ({teenagers_count} groups)")
 
     # Revenue breakdown
     print("\nREVENUE BREAKDOWN (NIS)")
