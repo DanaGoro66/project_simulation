@@ -383,7 +383,7 @@ class Family(Group):
       else:
         num_groups = 3
 
-      if num_groups == 3 and self.can_split_into_three(self,  young_children, older_children, middle_children):
+      if num_groups == 3 and self.can_split_into_three(young_children, older_children, middle_children):
         self.split_groups = self.split_into_three_groups(parents, young_children, middle_children, older_children)
 
       else:
@@ -612,7 +612,7 @@ class Park:
     self.facilities["Small Tube Slide"] = SmallTubeSlideAttraction(self.queues["Small Tube Slide"])
     self.facilities["Waves Pool"] = WavesPoolAttraction(self.queues["Waves Pool"])
     self.facilities["Kids Pool"] = KidsPoolAttraction(self.queues["Kids Pool"])
-    self.facilities["Snorkeling Tour"] = SnorkelingTourAttraction(self.queues["Snorkeling Tour"], self.opening_hour)
+    self.facilities["Snorkeling Tour"] = SnorkelingTourAttraction(self.opening_hour, self.queues["Snorkeling Tour"])
     self.facilities["Pizza stand"] = PizzaFoodStand()
     self.facilities["Hamburger stand"] = HamburgerFoodStand()
     self.facilities["Salad stand"] = SaladFoodStand()
@@ -765,7 +765,6 @@ class Attraction(Facility):
 
     def count_tubes(self, tubes):
       return len(tubes)
-
     def has_tube(self, tubes, tube_id):
       return self.find_tube(tubes, tube_id) is not None
 
@@ -790,7 +789,7 @@ class LazyRiverAttraction(Attraction):
     def get_free_capacity(self) -> int:
       return self.tubeCapacity
 
-    def has_free_capacity(self) -> bool:
+    def has_free_capacity(self, group=None, end_time=datetime(2025,1,1,19,0), start_time=datetime(2025,1,1,9,0)) -> bool:
       return self.count_tubes(self.tubes)<self.rideCapacity
     
   
@@ -846,7 +845,7 @@ class SingleWaterSlideAttraction(Attraction):
           capacity += 1
       return capacity
 
-    def has_free_capacity(self) -> bool:
+    def has_free_capacity(self, group=None, end_time=datetime(2025,1,1,19,0), start_time=datetime(2025,1,1,9,0)) -> bool:
       return any(capacity > 0 for capacity in self.slides_capacity)
       
     def get_ride_time(self):
@@ -877,7 +876,7 @@ class BigTubeSlideAttraction(Attraction):
     def get_free_capacity(self) -> int:
       return self.tubeCapacity
 
-    def has_free_capacity(self) -> bool:
+    def has_free_capacity(self, group=None, end_time=datetime(2025,1,1,19,0), start_time=datetime(2025,1,1,9,0)) -> bool:
       return self.count_tubes(self.tubes)<self.rideCapacity
     
 
@@ -905,7 +904,7 @@ class SmallTubeSlideAttraction(Attraction):
     def get_free_capacity(self) -> int:
       return self.tubeCapacity
 
-    def has_free_capacity(self) -> bool:
+    def has_free_capacity(self, group=None, end_time=datetime(2025,1,1,19,0), start_time=datetime(2025,1,1,9,0)) -> bool:
       return self.count_tubes(self.tubes)<self.rideCapacity
     
 
@@ -934,7 +933,7 @@ class WavesPoolAttraction(Attraction):
             return True
         return False
 
-    def has_free_capacity(self) -> bool:
+    def has_free_capacity(self, group=None, end_time=datetime(2025,1,1,19,0), start_time=datetime(2025,1,1,9,0)) -> bool:
       return self.occupied_spots < self.rideCapacity
 
 
@@ -963,7 +962,7 @@ class KidsPoolAttraction(Attraction):
           return True
       return False
 
-  def has_free_capacity(self) -> bool:
+  def has_free_capacity(self, group=None, end_time=datetime(2025,1,1,19,0), start_time=datetime(2025,1,1,9,0)) -> bool:
     return self.occupied_spots < self.rideCapacity
 
     
@@ -1014,7 +1013,7 @@ class SnorkelingTourAttraction(Attraction):
     return len(self.queue.queue) == 0 and guide != None, guide
 
   def get_free_capacity(self):
-    return self.ride_capacity
+    return self.rideCapacity
 
   def enter_ride(self, session, size, time, guide_num):
     self.collecting_size[guide_num] += size
@@ -1524,8 +1523,9 @@ class EndAttractionEvent(Event):
         if datetime(2025, 1, 1, 13, 00).time() <= self.time.time() <= datetime(2025, 1, 1, 15, 00).time() and not self.group.decided_on_lunch:
           self.group.decided_on_lunch = True
           if (random.random() < 0.7):
-            current_stand = simulation.park.facilities[FoodStand.decide_on_stand()]
-            food_time = simulation.park.facilities[current_stand].get_total_duration(self.group)
+            stand_name = FoodStand.decide_on_stand()
+            current_stand = simulation.park.facilities[stand_name]
+            food_time = current_stand.get_total_duration(self.group)
             simulation.schedule_event(EndLunchEvent(self.time + timedelta(minutes = food_time), self.group, current_stand))
         # Routing the current group to the next attractions / leaving
         else:
@@ -1541,7 +1541,7 @@ class EndLunchEvent(Event):
   def handle(self, simulation):
     
     # Update rating if the group was unsatisfied and add income
-    FoodStand.process_meal(self.group)
+    self.stand.process_meal(self.group)
 
     # Routing the current group to the next attractions / leaving
     simulation.route_group_to_next(self.group, self.time)
@@ -1576,7 +1576,8 @@ class LeavingEvent(Event):
 
   def handle(self, simulation):
     #group leaving
-    simulation.park.current_visitor_group.remove(self.group)
+    if self.group in simulation.park.current_visitor_group:
+        simulation.park.current_visitor_group.remove(self.group)
     # Purchasing pictures
     self.group.purchase_pictures()
 
