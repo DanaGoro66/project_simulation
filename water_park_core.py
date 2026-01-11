@@ -510,7 +510,7 @@ class Family(Group):
 class SplittedFamily(Group):
   def __init__(self, amount_of_members, members, original_family):
     super().__init__(amount_of_members,15)
-    self.members = copy.deepcopy(members)
+    self.members = list(members)
     self.original_family = original_family
     self.has_express = original_family.has_express
     self.leave_time = original_family.leave_time
@@ -1569,7 +1569,6 @@ class Session:
     self.in_service = 0 # כמה אנשים מהקבוצה נמצאים כרגע בתוך המתקן
     self.arrival_time = arrival_time # זמן ההגעה לתור (לצורך חישובי סטטיסטיקה של המתנה)
     self.assigned_slide = 0
-    self.assigned_slide = 0
 
   def is_finished(self):
     #הקבוצה סיימה את המתקן רק כשכולם נכנסו וכולם יצאו
@@ -1935,7 +1934,8 @@ class Simulation:
 
     # Increment arrival count IMMEDIATELY upon routing.
     # This ensures that "walk-ins" (who skip the queue) are still counted as arrivals.
-    queue.arrivals_count += getattr(group, "amount_of_members", 0) 
+    queue.arrivals_count += int(group.units_for(next_activity))
+
 
 
     # 4) can enter immediately?
