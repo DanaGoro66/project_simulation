@@ -337,7 +337,7 @@ class Family(Group):
     random.shuffle(self.members[0].activity_diary)
 
     # Makes sure all of the family has the same diary
-    for i in range(1, len(self.members) - 1):
+    for i in range(1, len(self.members)):
       self.members[i].activity_diary = copy.deepcopy(self.members[0].activity_diary)
 
   def generate_final_activity_diary(self):
