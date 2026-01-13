@@ -13,6 +13,8 @@ from collections import deque
 import heapq
 from typing import Optional, List, Any
 GLOBAL_SEED = 42
+GLOBAL_IS_ALT_1 = False
+GLOBAL_IS_ALT_2 = False
 
 # Algorithm Class
 class Algorithm :
@@ -157,7 +159,7 @@ class Visitor:
   def __init__(self, rank, age, group):
     self.rank = 10.0 # דירוג התחלתי
     self.group = group
-    self.age = age #צריך להבין איפה מג'נרטים ברנדומליות גיל
+    self.age = age
     self.activity_diary = []
 
   def add_rank(self, adrenaline_level):
@@ -236,20 +238,19 @@ class Group:
       self.pictures_cost = 0
 
   def units_for(self, activity):
-
-    # אם מדובר בבריכת ילדים, רק הילדים נכנסים
-    if activity== "Kids Pool":
-      kidsNum=0
+    # When it's kid's pool, only kids under 4 enter
+    if activity == "Kids Pool":
+      kidsNum = 0
       for member in self.members:
         if member.age <= 4:
           kidsNum+=1
       return kidsNum 
     
-    # כברירת מחדל לכל שאר המתקנים - כל הקבוצה נכנסת
+    # For all the rest of the activities, all of the group enters
     return self.amount_of_members
 
   def add_activity_if_not_exists(self, activity_name):
-    """Helper method to add activity to diary only if it doesn't already exist"""
+    # Add activity to diary only if it doesn't already exist
     has_activity = any(activity_name in act for act in self.members[0].activity_diary)
     if not has_activity:
       for member in self.members:
@@ -296,7 +297,6 @@ class SingleVisitor(Group):
 
     return candidates
 
-#זמני הגעה וכמות משתתפים יג'ונרטו באירועים?
 class Family(Group):
   def __init__(self):
     self.split = False
@@ -355,7 +355,6 @@ class Family(Group):
         self.add_activity_if_not_exists("Snorkeling Tour")
       if minAge <= 4:
         self.add_activity_if_not_exists("Kids Pool")
-      # לשים לב שצריך איפשהו בטיפול אירוע לשנות את הסדר של המתקנים לפי אורך תור
 
   def get_candidate_activities(self, last_activity_tried):
     # Phase 1 - before the decision on splitting
@@ -629,14 +628,6 @@ class Park:
     self.facilities["Hamburger stand"] = HamburgerFoodStand()
     self.facilities["Salad stand"] = SaladFoodStand()
 
-    
-
-  
-
-
-  def is_open(self, current_time):
-    # Cheks if the stand is open according to the simulation time
-    return self.opening_hour <= current_time <= self.closing_hour
 
   def cacl_amount_of_visitors(self):
     amount_of_visitors = 0
@@ -649,7 +640,7 @@ class Park:
     if not self.visitor_groups:
       self.avg_rank = 0
       return 0
-    # Calculate the rating by suming all the rates and dividing by number of visitors
+    # Calculate the rating by summing all the rates and dividing by number of visitors
     total_rank = 0
     for vg in self.visitor_groups:
       for m in vg.members:
@@ -732,14 +723,14 @@ class Attraction(Facility):
       pass  
 
     def has_free_capacity(self, group = None, end_time = datetime(2025,1,1,19,0), start_time = datetime(2025,1,1,9,0)) -> bool:
-      #at least one free spot for the given group and/or at least one free server
+      # At least one free spot for the given group and/or at least one free server
       pass
 
     def can_enter_immediately(self, group, current_time=None):
       return len(self.queue.queue) == 0 and self.has_free_capacity(group, current_time, current_time)
 
     def get_priority_session(self, simulation):
-      #find the relevant session 
+      # Find the relevant session 
       activity_name = self.name
       for (group, act_name), session in simulation.sessions.items():
         if act_name == activity_name:
@@ -784,7 +775,7 @@ class Attraction(Facility):
 class LazyRiverAttraction(Attraction):
     def __init__(self, queue):
       super().__init__("Lazy River", adrenalinLevel=1, minAge=0, available_servers=60, rideCapacity=2, queue=queue)
-      self.tubes=[] # current tubes by enter time
+      self.tubes=[] # Current tubes by enter time
 
 
     def enter_ride(self,session,units_to_enter, time = datetime(2025,1,1,9,0), guide_num = None): 
@@ -832,7 +823,7 @@ class SingleWaterSlideAttraction(Attraction):
       session.assigned_slide = slide_idx
   
   def exit_ride(self, session, units_finished):
-    # Releasing the current silde
+    # Releasing the current slide
     if hasattr(session, 'assigned_slide'):
       idx = session.assigned_slide
       self.slide_occupancy[idx] = max(0, self.slide_occupancy[idx] - 1)
@@ -857,7 +848,11 @@ class SingleWaterSlideAttraction(Attraction):
     
 class BigTubeSlideAttraction(Attraction):
     def __init__(self,queue):
-      super().__init__("Big Tube Slide", adrenalinLevel=2, minAge=0, available_servers=1, rideCapacity=8, queue=queue)
+      if GLOBAL_IS_ALT_1:
+        capacity = 10
+      else:
+        capacity = 8
+      super().__init__("Big Tube Slide", adrenalinLevel=2, minAge=0, available_servers=1, rideCapacity=capacity, queue=queue)
       self.max_tubes = 1  
       self.tubes=[]
 
@@ -902,8 +897,12 @@ class SmallTubeSlideAttraction(Attraction):
 
 class WavesPoolAttraction(Attraction):
     def __init__(self,queue):
-        super().__init__("Waves Pool", adrenalinLevel=3, minAge=12, available_servers=1, rideCapacity=80, queue=queue)
-        self.occupied_spots = 0  
+      if GLOBAL_IS_ALT_2:
+        capacity = 120
+      else:
+        capacity = 80
+      super().__init__("Waves Pool", adrenalinLevel=3, minAge=12, available_servers=1, rideCapacity=80, queue=queue)
+      self.occupied_spots = 0  
 
     def enter_ride(self, session, units_to_enter, time, guide_num=None):
       self.occupied_spots += units_to_enter
@@ -1014,7 +1013,10 @@ class SnorkelingTourAttraction(Attraction):
 class FoodStand:
   def __init__(self, name):
     self.name = name
-    self.bad_meal_prob = 0.1
+    if GLOBAL_IS_ALT_1:
+      self.bad_meal_prob = 0.03
+    else:
+      self.bad_meal_prob = 0.1
     self.total_revenue = 0
     self.opening_hour = datetime(2025, 1, 1, 13, 0)
     self.closing_hour = datetime(2025, 1, 1, 15, 0)
@@ -1034,33 +1036,31 @@ class FoodStand:
 
 
   def calculate_service_and_eating(self):
-    # שירות: נורמלי (תוחלת 5, סטיית תקן 1.5)
+    # Sample service time from normal distribution
     service_time = Algorithm.sample_normal(5, 1.5)
-    # אכילה: אחיד (15-35 דקות)
+
+    # Sample eating time from continuous uniform distribution
     eating_time = Algorithm.sample_continuous_uniform(15, 35)
+
     return service_time + eating_time
 
   def get_total_duration(self, group):
-    # פונקציה אבסטרקטית לחישוב זמן הכנה + זמן שירות ואכילה
+    # Calculate total lunch duration
     pass
 
-  def is_open(self, current_time):
-    # בדיקה האם הדוכן פתוח לפי השעה בסימולציה
-    return self.opening_hour <= current_time <= self.closing_hour
-
   def process_meal(self, group):
-    # פונקציה מרכזית שמופעלת מה-Event: מחשבת הכנסה ובודקת איכות מנה (השפעה על הדירוג).
+    # Calculate income and adds ranking
 
-    # חישוב הכנסה לפי סוג הדוכן והקבוצה
+    # Calculate income according to type of group and stand
     income = self.calculate_income(group)
     self.total_revenue += income
 
-    # לוגיקת מנה לא טובה (מוריד 0.8 מהדירוג)
+    # Bad meal logic
     if random.random() < self.bad_meal_prob:
         group.decrease_rank(0.8)
 
   def calculate_income(self, group):
-    # שיטה אבסטרקטית שחייבת מימוש בכל דוכן
+    # Calculates the income
     pass
 
 class PizzaFoodStand(FoodStand):
@@ -1354,7 +1354,11 @@ class SingleVisitorArrivalEvent(Event):
       simulation.schedule_event(LeavingEvent(datetime(2025, 1, 1, 19, 00), self.group))
 
     # Sampling next arrival
-    time_until_next_arrival = Algorithm.sample_exponential(1.5)
+    if GLOBAL_IS_ALT_2:
+      currrent_lambda = 3
+    else:
+      currrent_lambda = 1.5
+    time_until_next_arrival = Algorithm.sample_exponential(currrent_lambda)
     next_arrival_time = self.time + timedelta(minutes=time_until_next_arrival)
 
     group = SingleVisitor.CreateSingleVisitor()
@@ -1404,8 +1408,8 @@ class TeenagersArrivalEvent(Event):
       # Creating a leaving event at 19:00
       simulation.schedule_event(LeavingEvent(datetime(2025, 1, 1, 19, 00), self.group))
 
-    # 500 groups in a day is a lambda of 18/25
-    time_until_next_arrival = Algorithm.sample_exponential(18/25)
+    # 500 groups in a 360 minutes is a lambda of 25/18
+    time_until_next_arrival = Algorithm.sample_exponential(25/18)
     next_arrival_time = self.time + timedelta(minutes=time_until_next_arrival)
 
     # Taking care of the next arrival event creation
@@ -1501,7 +1505,11 @@ class EndAttractionEvent(Event):
         # Checking on lunch
         if datetime(2025, 1, 1, 13, 00).time() <= self.time.time() <= datetime(2025, 1, 1, 15, 00).time() and not self.group.decided_on_lunch:
           self.group.decided_on_lunch = True
-          if (random.random() < 0.7):
+          if GLOBAL_IS_ALT_1:
+            isLunch = random.random() < 0.85
+          else:
+            isLunch = random.random() < 0.7
+          if isLunch:
             stand_name = FoodStand.decide_on_stand()
             current_stand = simulation.park.facilities[stand_name]
             food_time = current_stand.get_total_duration(self.group)
@@ -1564,25 +1572,25 @@ class Session:
   def __init__(self, group, attraction, arrival_time:datetime):
     self.group = group
     self.attraction = attraction
-    self.total_units = group.amount_of_members # כמות האנשים בקבוצה המקורית
-    self.remaining_to_start = group.units_for(attraction.name) # כמה אנשים מהקבוצה עוד לא נכנסו למתקן
-    self.in_service = 0 # כמה אנשים מהקבוצה נמצאים כרגע בתוך המתקן
-    self.arrival_time = arrival_time # זמן ההגעה לתור (לצורך חישובי סטטיסטיקה של המתנה)
+    self.total_units = group.amount_of_members # Visitors amount in the original group
+    self.remaining_to_start = group.units_for(attraction.name) # How many people from the group still haven't started the attraction
+    self.in_service = 0 # How many people from the group are inside of the attraction at the moment
+    self.arrival_time = arrival_time # Time of arrival to the queue
     self.assigned_slide = 0
 
   def is_finished(self):
-    #הקבוצה סיימה את המתקן רק כשכולם נכנסו וכולם יצאו
+    # The group finished only when all of the group entered and exited
     return self.remaining_to_start == 0 and self.in_service == 0
 
   def record_entry(self, units):
-    # מעדכן כשחלק מהקבוצה נכנס למתקן
+    # Update the entry of "units" people from the group
     if units > self.remaining_to_start:
         raise ValueError(f"נסיו להכניס {units} אנשים, אך רק {self.remaining_to_start} נותרו ב-Session")
     self.remaining_to_start -= units
     self.in_service += units
 
   def record_exit(self, units):
-    # מעדכן כשחלק מהקבוצה מסיים את המתקן ויוצא ממנו
+    # Update the exit of "units" people from the group
     if units > self.in_service:
         raise ValueError(f"נסיון להוציא {units} אנשים, אך רק {self.in_service} נמצאים בשירות")
     self.in_service -= units
@@ -1592,15 +1600,17 @@ class Session:
 
 # %% id="d2JfwrJ48KAg"
 class Simulation:
-  def __init__(self,seed=GLOBAL_SEED):
+  def __init__(self, seed = GLOBAL_SEED, isAlt1 = False, isAlt2 = False):
     self.seed = seed
     random.seed(self.seed)
     np.random.seed(self.seed)
     self.park = Park()
     self.clock = datetime(2025, 1, 1, 9, 0)
-    self.event_diary =[] #minimum heap
+    self.event_diary =[] # minimum heap
     self.sessions = {}  # {(group, activity_name): session_object}
     self.total_waiting_time = 0
+    GLOBAL_IS_ALT_1 = isAlt1
+    GLOBAL_IS_ALT_2 = isAlt2
 
   def run(self):
     firstSingle = SingleVisitor.CreateSingleVisitor()
@@ -1618,8 +1628,7 @@ class Simulation:
         diary = event.group.members[0].activity_diary
         already_done = any(act_name == event.attraction.name and done for act_name, done in diary)
         if already_done:
-          continue  # SKIP this abandonment event entirely
-
+          continue  # Skip this abandonment event entirely
 
       # Removing all of the events of the family after the leaving event
       if isinstance(event, LeavingEvent):
@@ -1772,7 +1781,11 @@ class Simulation:
         entrance.assign_server()
         
         # 3. Calculate the service time (Logic moved from Arrival Events)
-        service_duration = Algorithm.sample_continuous_uniform(0.5, 2) + Algorithm.sample_exponential(2)
+        if GLOBAL_IS_ALT_2:
+          ticket_time = 0
+        else:
+          ticket_time = Algorithm.sample_continuous_uniform(0.5, 2)
+        service_duration = ticket_time + Algorithm.sample_exponential(2)
         service_time = current_time + timedelta(minutes=service_duration)
         
         # 4. NOW we schedule the event
@@ -1936,8 +1949,6 @@ class Simulation:
     # This ensures that "walk-ins" (who skip the queue) are still counted as arrivals.
     queue.arrivals_count += int(group.units_for(next_activity))
 
-
-
     # 4) can enter immediately?
     can_enter_now = False
     guide_num = None
@@ -1986,5 +1997,14 @@ class Simulation:
 
 # %%
 
+# Run the base simulation
 sim = Simulation()
+sim.run()
+
+# Run the simulation with alternative 1
+sim = Simulation(isAlt1=True)
+sim.run()
+
+# Run the simulation with alternative 2
+sim = Simulation(isAlt2=True)
 sim.run()
