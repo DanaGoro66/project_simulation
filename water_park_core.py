@@ -12,14 +12,8 @@ from datetime import time, datetime, timedelta
 from collections import deque
 import heapq
 from typing import Optional, List, Any
-<<<<<<< HEAD
-GLOBAL_SEED = 42
 GLOBAL_IS_ALT_1 = False
 GLOBAL_IS_ALT_2 = False
-=======
-
->>>>>>> a319163 (My local changes before merging friend's updates)
-
 # Algorithm Class
 class Algorithm :
 
@@ -1444,11 +1438,7 @@ class TeenagersArrivalEvent(Event):
       # Creating a leaving event at 19:00
       simulation.schedule_event(LeavingEvent(datetime(2025, 1, 1, 19, 00), self.group))
 
-<<<<<<< HEAD
     # 500 groups in a 360 minutes is a lambda of 25/18
-=======
-    # 500 groups in a day is a lambda of 25/18
->>>>>>> a319163 (My local changes before merging friend's updates)
     time_until_next_arrival = Algorithm.sample_exponential(25/18)
     next_arrival_time = self.time + timedelta(minutes=time_until_next_arrival)
 
@@ -1640,11 +1630,7 @@ class Session:
 
 # %% id="d2JfwrJ48KAg"
 class Simulation:
-<<<<<<< HEAD
-  def __init__(self, seed = GLOBAL_SEED, isAlt1 = False, isAlt2 = False):
-=======
-  def __init__(self,seed=None):
->>>>>>> a319163 (My local changes before merging friend's updates)
+  def __init__(self, seed = None, isAlt1 = False, isAlt2 = False):
     self.seed = seed
     random.seed(self.seed)
     np.random.seed(self.seed)
@@ -1653,10 +1639,8 @@ class Simulation:
     self.event_diary =[] # minimum heap
     self.sessions = {}  # {(group, activity_name): session_object}
     self.total_waiting_time = 0
-<<<<<<< HEAD
     GLOBAL_IS_ALT_1 = isAlt1
     GLOBAL_IS_ALT_2 = isAlt2
-=======
     # DEBUG: Track actual rides/tours started for each attraction
     self.attraction_counts = {
       "Lazy River": 0,
@@ -1667,7 +1651,6 @@ class Simulation:
       "Kids Pool": 0,
       "Snorkeling Tour": 0
     }
->>>>>>> a319163 (My local changes before merging friend's updates)
 
   def run(self):
     firstSingle = SingleVisitor.CreateSingleVisitor()
@@ -2067,19 +2050,14 @@ class Simulation:
 
 # %%
 
-# Run the base simulation
-sim = Simulation()
-sim.run()
 
-# Run the simulation with alternative 1
-sim = Simulation(isAlt1=True)
-sim.run()
-
-# Run the simulation with alternative 2
-sim = Simulation(isAlt2=True)
-sim.run()
 
 # Your multiple runs
 for i in range(15):
-    sim.run(42+i)
+    sim0 = Simulation(seed=42+i)
+    sim1 = Simulation(isAlt1=True, seed=42+i)
+    sim2 = Simulation(isAlt2=True, seed=42+i)
+    sim0.run()
+    sim1.run()
+    sim2.run()
     print(f"Run {i+1} completed")
