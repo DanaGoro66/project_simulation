@@ -33,13 +33,12 @@ import random
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import probplot, norm, kstest, expon
-from IPython.display import HTML, display
-from google.colab import files
 from datetime import time, datetime, timedelta
 from collections import deque
 import heapq
 from typing import Optional, List, Any
-GLOBAL_SEED = 42
+GLOBAL_IS_ALT_1 = False
+GLOBAL_IS_ALT_2 = False
 
 # %% [markdown] id="DePf7NHLKTE9"
 # # כתיבת קוד למציאת התפלגויות ומבחני טיב התאמה לזמני התגלשות במגלשות האבובים הקטנה והגדולה
@@ -1673,7 +1672,7 @@ print(f"Decision at alpha={alpha}: {decision_big}")
 # The algorithm class
 class Algorithm :
 
-  ### algorithm for discrete distribution
+  # discrete uniform distribution
   @staticmethod
   def sample_number_of_children(a,b):
     U = random.random()  # Returns a scalar from [0, 1)
@@ -1681,7 +1680,7 @@ class Algorithm :
     return x
 
 
-  ### algorithm for continuous distribution
+  # continuous uniform distribution
   @staticmethod
   def sample_continuous_uniform(a, b):
     U = random.random() # Returns a scalar from [0, 1)
@@ -1689,21 +1688,21 @@ class Algorithm :
     return x
 
 
-  ### algorithm for exponential distribution
+  # exponential distribution
   @staticmethod
   def sample_exponential(lam):
     U = random.random() # Returns a scalar from [0, 1)
     x = -(1 / lam) * math.log(1 - U)  # Uses transformation
     return x
 
-  ### algorithm for family leaving time distribution
+  # family departure time
   @staticmethod
   def sample_family_leaving_time():
     U = random.random()
     x = 16 + 3 * math.sqrt(U)# Uses transformation
     return x
 
-  ### algorithm for number of teenagers
+  # teenager group size
   @staticmethod
   def sample_number_of_teenagers():
       U = random.random()
@@ -1721,7 +1720,7 @@ class Algorithm :
           return 6
 
 
-  ### algorithm for standard normal distribution
+  # standard normal (Box-Muller)
   @staticmethod
   def sample_standard_normal():
 
@@ -1732,9 +1731,8 @@ class Algorithm :
     return Z
 
   @staticmethod
-  ### algorithm for  normal distribution
+  # normal distribution
   def sample_normal(mu, sigma):
-    #Sample from N(mu, sigma^2)
 
     Z = Algorithm.sample_standard_normal()
     X = mu + sigma * Z
@@ -1742,7 +1740,7 @@ class Algorithm :
 
 
   @staticmethod
-  ### algorithm for wavepool time
+  # wave pool ride time
   def generate_wavepool_time():
     while True:
       # 1. Sample U1 ~ Uniform(0, 1) and set X = 60 * U1
@@ -1760,10 +1758,10 @@ class Algorithm :
       if U2 <= (45 / 2) * f_x:
           return X
 
-  ### Calculating the wavepool pdf
+  # wave pool PDF
   @staticmethod
   def wavepool_pdf(x):
-    # Calculates the probability density f(x) based on the piecewise definition.
+  # piecewise PDF
     if 0 <= x <= 30:
         return x / 2700
     elif 30 < x <= 50:
@@ -1774,33 +1772,31 @@ class Algorithm :
         return 0
 
 
-  ### Algorithm for kids pool time
+  # kids pool ride time
   @staticmethod
   def generate_kids_pool_time():
-    # 1. Generate Global U ~ Uniform(0, 1)
+    # 1. Sample U ~ Uniform(0, 1)
     U = random.random()
 
     # 2. Check Segment 1 (Probability 1/6)
     if U < (1/6):
       # Scale U to local u [0, 1]
       u_local = 6 * U
-      # Inverse Transform for Segment 1
+      # Inverse Transform for Segment 1: x = 1 + 0.25 * sqrt(u_local)
       x = 1 + 0.25 * math.sqrt(u_local)
       return x
 
     # 3. Check Segment 2 (Probability 4/6)
-    # Cumulative probability threshold is 1/6 + 4/6 = 5/6
     elif U < (5/6):
-      # Shift and Scale U to local u [0, 1]
-      # (U - 1/6) shifts start to 0. Multiplying by 3/2 scales range (4/6) to 1.
+      # Shift and scale U to local u [0, 1]
       u_local = 1.5 * (U - (1/6))
-      # Inverse Transform for Segment 2
+      # Inverse Transform for Segment 2: x = 1.25 + (u_local / 2)
       x = 1.25 + (u_local / 2)
       return x
 
     # 4. Check Segment 3 (Probability 1/6)
     else:
-      # Shift and Scale U to local u [0, 1]
+      # Shift and scale U to local u [0, 1]
       u_local = 6 * (U - (5/6))
       # Inverse Transform for Segment 3
       x = 2 - 0.25 * math.sqrt(1 - u_local)
@@ -1875,15 +1871,16 @@ class Algorithm :
 #
 
 # %% colab={"base_uri": "https://localhost:8080/", "height": 106} id="d60Wp5I30RJe" outputId="7479fceb-8771-4132-fceb-e6bcbd8d1c71"
+# Visitor Classes
 class Visitor:
   def __init__(self, rank, age, group):
-    self.rank = 10.0 # דירוג התחלתי
+    self.rank = 10.0 # initial ranking
     self.group = group
-    self.age = age #צריך להבין איפה מג'נרטים ברנדומליות גיל
+    self.age = age
     self.activity_diary = []
 
   def add_rank(self, adrenaline_level):
-    # נוסחת הציון
+    # scoring formula
     GS = self.group.amount_of_members
     score = (((GS - 1) / 5 )* 0.3) + (((adrenaline_level - 1) / 4) * 0.7)
     self.rank = min(10,self.rank + score)
@@ -1891,7 +1888,6 @@ class Visitor:
   def decrease_rank(self, penalty):
     self.rank = max(0, self.rank - penalty)
 
-  #implements the success of an activity during the day
   def enter_successful(self, activity):
     for act in self.activity_diary:
       if act[0] == activity:
@@ -1928,11 +1924,10 @@ class Group:
   def get_candidate_activities(self, last_activity_tried):
     pass
 
-  # Checkes if the first 'count' activities have already completed
+  # Checks if the first 'count' activities have already completed
   def is_phase_finished(self, count):
     return all(act[1] for act in self.members[0].activity_diary[:count])
 
-  # Finds the minimal age on the group
   def find_min_age(self):
     minAge = self.members[0].age
     for i in range(1, len(self.members)):
@@ -1958,20 +1953,17 @@ class Group:
       self.pictures_cost = 0
 
   def units_for(self, activity):
-
-    # אם מדובר בבריכת ילדים, רק הילדים נכנסים
-    if activity== "Kids Pool":
-      kidsNum=0
+    # When it's kid's pool, only kids under 4 enter
+    if activity == "Kids Pool":
+      kidsNum = 0
       for member in self.members:
         if member.age <= 4:
           kidsNum+=1
       return kidsNum 
     
-    # כברירת מחדל לכל שאר המתקנים - כל הקבוצה נכנסת
     return self.amount_of_members
 
   def add_activity_if_not_exists(self, activity_name):
-    """Helper method to add activity to diary only if it doesn't already exist"""
     has_activity = any(activity_name in act for act in self.members[0].activity_diary)
     if not has_activity:
       for member in self.members:
@@ -2008,17 +2000,16 @@ class SingleVisitor(Group):
     phase1 = self.members[0].activity_diary[:3]
     phase2 = self.members[0].activity_diary[3:]
 
-    # Wer'e on phase 1
+    # phase 1
     if not all(act[1] for act in phase1):
       candidates = [act[0] for act in phase1 if not act[1] and act[0] != last_activity_tried]
 
-    # Wer'e on phase 2
+    # phase 2
     else:
       candidates = [act[0] for act in phase2 if not act[1] and act[0] != last_activity_tried]
 
     return candidates
 
-#זמני הגעה וכמות משתתפים יג'ונרטו באירועים?
 class Family(Group):
   def __init__(self):
     self.split = False
@@ -2030,7 +2021,7 @@ class Family(Group):
 
 
   @staticmethod
-  def CreateFamily(): # creates family, decides ages...
+  def CreateFamily():
     new_family = Family()
     num_children = new_family.amount_of_members - 2
     # Create 2 parents
@@ -2040,14 +2031,14 @@ class Family(Group):
       new_family.members.append(parent)
     # Create children
     for i in range(num_children):
-      child_age = Algorithm.sample_continuous_uniform(2, 18)  # age uniform continuous [2,18]
+      child_age = Algorithm.sample_continuous_uniform(2, 18)
       child = Visitor(rank=10, age=child_age, group=new_family)
       new_family.members.append(child)
 
     
     
 
-    # Addition: Generate the activity diary for the family
+    # generate activity diary for the family
     new_family.generate_activity_diary()
 
     return new_family
@@ -2077,7 +2068,6 @@ class Family(Group):
         self.add_activity_if_not_exists("Snorkeling Tour")
       if minAge <= 4:
         self.add_activity_if_not_exists("Kids Pool")
-      # לשים לב שצריך איפשהו בטיפול אירוע לשנות את הסדר של המתקנים לפי אורך תור
 
   def get_candidate_activities(self, last_activity_tried):
     # Phase 1 - before the decision on splitting
@@ -2107,7 +2097,7 @@ class Family(Group):
       children = [m for m in self.members if m.age < 18]
 
       # Categorize children by age
-      young_children = [c for c in children if c.age < 8]  # # Must have parent or 12+
+      young_children = [c for c in children if c.age < 8]  # Must have parent or 12+
       middle_children = [c for c in children if 8 <= c.age < 12]  # Independent
       older_children = [c for c in children if c.age >= 12]  # Can supervise
 
@@ -2128,7 +2118,7 @@ class Family(Group):
       return self.split_groups
 
     else: # Family doesn't split
-        # Generates the rest of the activities (after the family decdided not to split)
+        # Generates the rest of the activities (after the family decided not to split)
         self.generate_final_activity_diary()
         return [self]
 
@@ -2141,7 +2131,7 @@ class Family(Group):
 
     return groups
 
-  #Split family to 2 groups
+  # Split family to 2 groups
   def split_into_two_groups(self, parents, young, middle, older):
 
     # Start with parents
@@ -2169,7 +2159,7 @@ class Family(Group):
     # Create SplitedFamily objects
     return self.create_splitted_family([group1_members, group2_members])
 
-  #Splitting a family to 3
+  # Split family into 3 groups
   def split_into_three_groups(self, parents, young, middle, older):
 
     group1_members = [parents[0]]
@@ -2214,7 +2204,7 @@ class Family(Group):
     # Create SplitedFamily objects
     return self.create_splitted_family([group1_members, group2_members, group3_members])
 
-  #Check if a family can split into 3 according to instructions
+  # Check if a family can split into 3 according to instructions
   def can_split_into_three(self, young, older, middle):
     return len(older) + len(middle) > 0
 
@@ -2278,15 +2268,15 @@ class Teenagers(Group):
       new_teenage_group = Teenagers()
       # Create teenager members
       for i in range(new_teenage_group.amount_of_members):
-          # Using reasonable upper bound of 17, choosing continous uniform distribution
+          # age uniform continuous [14, 17]
           teen_age = Algorithm.sample_continuous_uniform(14, 17)
           teen = Visitor(rank=10, age=teen_age, group=new_teenage_group)
           new_teenage_group.members.append(teen)
       
-      # Generate the activity diary
+    # Generate the activity diary
       new_teenage_group.generate_activity_diary()
       
-      # Return the new group
+    # Return the new group
       return new_teenage_group
 
   def buy_express(self, simulation):
@@ -2294,7 +2284,7 @@ class Teenagers(Group):
     simulation.park.special_express_revenue += self.amount_of_members * 50
 
   def generate_activity_diary(self):
-    # Generate for teenagers only the rides with 3 or more waves
+    # Generate for teenagers only the rides with 3+ adrenaline
     self.members[0].activity_diary = [["Single Water Slide", False], ["Small Tube Slide", False], ["Waves Pool", False], ["Snorkeling Tour", False]]
     random.shuffle(self.members[0].activity_diary)
 
@@ -2351,14 +2341,6 @@ class Park:
     self.facilities["Hamburger stand"] = HamburgerFoodStand()
     self.facilities["Salad stand"] = SaladFoodStand()
 
-    
-
-  
-
-
-  def is_open(self, current_time):
-    # Cheks if the stand is open according to the simulation time
-    return self.opening_hour <= current_time <= self.closing_hour
 
   def cacl_amount_of_visitors(self):
     amount_of_visitors = 0
@@ -2371,7 +2353,7 @@ class Park:
     if not self.visitor_groups:
       self.avg_rank = 0
       return 0
-    # Calculate the rating by suming all the rates and dividing by number of visitors
+    # Calculate the rating by summing all the rates and dividing by number of visitors
     total_rank = 0
     for vg in self.visitor_groups:
       for m in vg.members:
@@ -2454,14 +2436,15 @@ class Attraction(Facility):
       pass  
 
     def has_free_capacity(self, group = None, end_time = datetime(2025,1,1,19,0), start_time = datetime(2025,1,1,9,0)) -> bool:
-      #at least one free spot for the given group and/or at least one free server
+      # At least one free spot for the given group and/or at least one free server
       pass
 
     def can_enter_immediately(self, group, current_time=None):
-      return len(self.queue.queue) == 0 and self.has_free_capacity(group, current_time, current_time)
+      result = len(self.queue.queue) == 0 and self.has_free_capacity(group, current_time, current_time)
+      return result
 
     def get_priority_session(self, simulation):
-      #find the relevant session 
+      # Find the relevant session 
       activity_name = self.name
       for (group, act_name), session in simulation.sessions.items():
         if act_name == activity_name:
@@ -2506,11 +2489,12 @@ class Attraction(Facility):
 class LazyRiverAttraction(Attraction):
     def __init__(self, queue):
       super().__init__("Lazy River", adrenalinLevel=1, minAge=0, available_servers=60, rideCapacity=2, queue=queue)
-      self.tubes=[] # current tubes by enter time
-
+      self.tubes=[] # Current tubes by enter time
 
     def enter_ride(self,session,units_to_enter, time = datetime(2025,1,1,9,0), guide_num = None): 
-          self.add_session_to_tube(self.tubes, time, session)
+          # Generate a unique tube_id based on the counter
+          tube_id = len(self.tubes) + 1
+          self.add_session_to_tube(self.tubes, tube_id, session)
 
     def exit_ride(self,session, units_finished):
         self.remove_tube_by_session(self.tubes, session)
@@ -2525,9 +2509,8 @@ class LazyRiverAttraction(Attraction):
       return 0
 
     def has_free_capacity(self, group=None, end_time=datetime(2025,1,1,19,0), start_time=datetime(2025,1,1,9,0)) -> bool:
-      return len(self.tubes) < self.available_servers
-    
-  
+      has_capacity = len(self.tubes) < self.available_servers
+      return has_capacity, 0  
 
 class SingleWaterSlideAttraction(Attraction):
   def __init__(self, queue):
@@ -2554,7 +2537,7 @@ class SingleWaterSlideAttraction(Attraction):
       session.assigned_slide = slide_idx
   
   def exit_ride(self, session, units_finished):
-    # Releasing the current silde
+    # Releasing the current slide
     if hasattr(session, 'assigned_slide'):
       idx = session.assigned_slide
       self.slide_occupancy[idx] = max(0, self.slide_occupancy[idx] - 1)
@@ -2579,7 +2562,11 @@ class SingleWaterSlideAttraction(Attraction):
     
 class BigTubeSlideAttraction(Attraction):
     def __init__(self,queue):
-      super().__init__("Big Tube Slide", adrenalinLevel=2, minAge=0, available_servers=1, rideCapacity=8, queue=queue)
+      if GLOBAL_IS_ALT_1:
+        capacity = 10
+      else:
+        capacity = 8
+      super().__init__("Big Tube Slide", adrenalinLevel=2, minAge=0, available_servers=1, rideCapacity=capacity, queue=queue)
       self.max_tubes = 1  
       self.tubes=[]
 
@@ -2624,8 +2611,12 @@ class SmallTubeSlideAttraction(Attraction):
 
 class WavesPoolAttraction(Attraction):
     def __init__(self,queue):
-        super().__init__("Waves Pool", adrenalinLevel=3, minAge=12, available_servers=1, rideCapacity=80, queue=queue)
-        self.occupied_spots = 0  
+      if GLOBAL_IS_ALT_2:
+        capacity = 120
+      else:
+        capacity = 80
+      super().__init__("Waves Pool", adrenalinLevel=3, minAge=12, available_servers=1, rideCapacity=80, queue=queue)
+      self.occupied_spots = 0  
 
     def enter_ride(self, session, units_to_enter, time, guide_num=None):
       self.occupied_spots += units_to_enter
@@ -2729,6 +2720,15 @@ class SnorkelingTourAttraction(Attraction):
   def enter_ride(self, session, size, time, guide_num):
     self.collecting_size[guide_num] += size
 
+  def exit_ride(self, session, units_finished):
+    # Find which guide was handling this session and reduce their collecting_size
+    # Since we don't track guide assignment in session, we need to find the guide
+    # This is a simple implementation - in practice you'd want to track guide assignments
+    for gid in range(len(self.collecting_size)):
+      if self.collecting_size[gid] >= units_finished:
+        self.collecting_size[gid] -= units_finished
+        break
+
 # %% [markdown] id="A3CWWPaX6YjY"
 # #Foodstand Classes
 
@@ -2736,7 +2736,10 @@ class SnorkelingTourAttraction(Attraction):
 class FoodStand:
   def __init__(self, name):
     self.name = name
-    self.bad_meal_prob = 0.1
+    if GLOBAL_IS_ALT_1:
+      self.bad_meal_prob = 0.03
+    else:
+      self.bad_meal_prob = 0.1
     self.total_revenue = 0
     self.opening_hour = datetime(2025, 1, 1, 13, 0)
     self.closing_hour = datetime(2025, 1, 1, 15, 0)
@@ -2756,33 +2759,31 @@ class FoodStand:
 
 
   def calculate_service_and_eating(self):
-    # שירות: נורמלי (תוחלת 5, סטיית תקן 1.5)
+    # Sample service time from normal distribution
     service_time = Algorithm.sample_normal(5, 1.5)
-    # אכילה: אחיד (15-35 דקות)
+
+    # Sample eating time from continuous uniform distribution
     eating_time = Algorithm.sample_continuous_uniform(15, 35)
+
     return service_time + eating_time
 
   def get_total_duration(self, group):
-    # פונקציה אבסטרקטית לחישוב זמן הכנה + זמן שירות ואכילה
+    # Calculate total lunch duration
     pass
 
-  def is_open(self, current_time):
-    # בדיקה האם הדוכן פתוח לפי השעה בסימולציה
-    return self.opening_hour <= current_time <= self.closing_hour
-
   def process_meal(self, group):
-    # פונקציה מרכזית שמופעלת מה-Event: מחשבת הכנסה ובודקת איכות מנה (השפעה על הדירוג).
+    # Calculate income and adds ranking
 
-    # חישוב הכנסה לפי סוג הדוכן והקבוצה
+    # Calculate income according to type of group and stand
     income = self.calculate_income(group)
     self.total_revenue += income
 
-    # לוגיקת מנה לא טובה (מוריד 0.8 מהדירוג)
+    # Bad meal logic
     if random.random() < self.bad_meal_prob:
         group.decrease_rank(0.8)
 
   def calculate_income(self, group):
-    # שיטה אבסטרקטית שחייבת מימוש בכל דוכן
+    # Calculates the income
     pass
 
 class PizzaFoodStand(FoodStand):
@@ -2834,10 +2835,12 @@ class Queue:
         self.queue: List[Any] = []
 
         # All metrics are in MINUTES (float)
-        self.waiting_times: List[float] = []
-        self.renege_waiting_times: List[float] = []
-        self.renege_count: int = 0
-        self.arrivals_count: int = 0
+        self.waiting_times: List[float] = []          # per-unit served wait (minutes)
+        self.renege_waiting_times: List[float] = []   # per-unit reneged wait (minutes)
+
+        self.arrivals_units: int = 0   # people who arrived to this queue (incl. immediate entry)
+        self.served_units: int = 0     # people who actually entered service (sum of batches)
+        self.reneged_units: int = 0    # people who reneged
 
         # Weighted queue length is in PERSON-MINUTES (float)
         self.last_change_time: Optional[datetime] = None
@@ -2847,21 +2850,26 @@ class Queue:
     # Park entrance buffer 
     # ------------------------------------------------------------
     def add_to_park_entrance(self, group: Any, current_time: datetime) -> None:
-      self.arrivals_count += int(getattr(group, "amount_of_members", 1))
+      self.arrivals_units += int(getattr(group, "amount_of_members", 1))
       group.entrance_entry_time = current_time
       self.queue.append(group)
 
     def pop_from_park_entrance(self, current_time: datetime) -> Optional[Any]:
-        if not self.queue:
-            return None
-        group = self.queue.pop(0)
-        entry_time = getattr(group, "entrance_entry_time", None)
-        if entry_time is not None:
-            waiting_minutes = (current_time - entry_time).total_seconds() / 60.0
-            units = getattr(group, "amount_of_members", 1)
-            self.waiting_times.extend([waiting_minutes] * int(units))
+      if not self.queue:
+          return None
 
-        return group
+      group = self.queue.pop(0)
+
+      units = getattr(group, "amount_of_members", 1)  # תמיד להגדיר
+      entry_time = getattr(group, "entrance_entry_time", None)
+
+      if entry_time is not None:
+          waiting_minutes = (current_time - entry_time).total_seconds() / 60.0
+          self.waiting_times.extend([waiting_minutes] * int(units))
+
+      self.served_units += int(units)
+      return group
+
 
 
     # ------------------------------------------------------------
@@ -2921,6 +2929,8 @@ class Queue:
           return
       waiting_minutes = (current_time - entry_time).total_seconds() / 60.0
       self.waiting_times.extend([waiting_minutes] * int(units))
+      self.served_units += int(units)
+
 
     def pop_first_group_of_size(self, size: int, current_time: datetime) -> Optional[Any]:
         # scan from front and pop the FIRST group with exact match (amount_of_members == size)
@@ -2946,21 +2956,34 @@ class Queue:
 
 
     def remove_group_on_renege(self, group: Any, current_time: datetime) -> bool:
-        # Called by external RenegeEvent
-        if group not in self.queue:
-            return False
+      # Called by external QueueAbandonmentEvent (renege)
+      if group not in self.queue:
+          return False
 
-        self._update_weighted_length(current_time)
+      # structural change -> update person-minutes
+      self._update_weighted_length(current_time)
 
-        entry_time = getattr(group, "entry_time", None)
-        if entry_time is not None:
-            renege_wait_minutes = (current_time - entry_time).total_seconds() / 60.0
-            self.renege_waiting_times.append(renege_wait_minutes)
+      entry_time = getattr(group, "entry_time", None)
+      if entry_time is not None:
+          renege_wait_minutes = (current_time - entry_time).total_seconds() / 60.0
 
-        self.renege_count += 1
-        self.queue.remove(group)
+          # how many "units" this group represents for THIS facility
+          try:
+              if hasattr(group, "units_for") and callable(getattr(group, "units_for")):
+                  units = int(group.units_for(self.facility_name))
+              else:
+                  units = int(getattr(group, "amount_of_members", 1))
+          except Exception:
+              units = int(getattr(group, "amount_of_members", 1))
 
-        return True
+          # record per-unit reneging wait (so averages are per person)
+          self.renege_waiting_times.extend([renege_wait_minutes] * units)
+          self.reneged_units += units
+
+      # remove from queue
+      self.queue.remove(group)
+      return True
+
 
     # ------------------------------------------------------------
     # Internal helpers
@@ -3076,7 +3099,11 @@ class SingleVisitorArrivalEvent(Event):
       simulation.schedule_event(LeavingEvent(datetime(2025, 1, 1, 19, 00), self.group))
 
     # Sampling next arrival
-    time_until_next_arrival = Algorithm.sample_exponential(1.5)
+    if GLOBAL_IS_ALT_2:
+      currrent_lambda = 3
+    else:
+      currrent_lambda = 1.5
+    time_until_next_arrival = Algorithm.sample_exponential(currrent_lambda)
     next_arrival_time = self.time + timedelta(minutes=time_until_next_arrival)
 
     group = SingleVisitor.CreateSingleVisitor()
@@ -3126,8 +3153,8 @@ class TeenagersArrivalEvent(Event):
       # Creating a leaving event at 19:00
       simulation.schedule_event(LeavingEvent(datetime(2025, 1, 1, 19, 00), self.group))
 
-    # 500 groups in a day is a lambda of 18/25
-    time_until_next_arrival = Algorithm.sample_exponential(18/25)
+    # 500 groups in a 360 minutes is a lambda of 25/18
+    time_until_next_arrival = Algorithm.sample_exponential(25/18)
     next_arrival_time = self.time + timedelta(minutes=time_until_next_arrival)
 
     # Taking care of the next arrival event creation
@@ -3223,7 +3250,11 @@ class EndAttractionEvent(Event):
         # Checking on lunch
         if datetime(2025, 1, 1, 13, 00).time() <= self.time.time() <= datetime(2025, 1, 1, 15, 00).time() and not self.group.decided_on_lunch:
           self.group.decided_on_lunch = True
-          if (random.random() < 0.7):
+          if GLOBAL_IS_ALT_1:
+            isLunch = random.random() < 0.85
+          else:
+            isLunch = random.random() < 0.7
+          if isLunch:
             stand_name = FoodStand.decide_on_stand()
             current_stand = simulation.park.facilities[stand_name]
             food_time = current_stand.get_total_duration(self.group)
@@ -3286,25 +3317,25 @@ class Session:
   def __init__(self, group, attraction, arrival_time:datetime):
     self.group = group
     self.attraction = attraction
-    self.total_units = group.amount_of_members # כמות האנשים בקבוצה המקורית
-    self.remaining_to_start = group.units_for(attraction.name) # כמה אנשים מהקבוצה עוד לא נכנסו למתקן
-    self.in_service = 0 # כמה אנשים מהקבוצה נמצאים כרגע בתוך המתקן
-    self.arrival_time = arrival_time # זמן ההגעה לתור (לצורך חישובי סטטיסטיקה של המתנה)
+    self.total_units = group.amount_of_members # Visitors amount in the original group
+    self.remaining_to_start = group.units_for(attraction.name) # How many people from the group still haven't started the attraction
+    self.in_service = 0 # How many people from the group are inside of the attraction at the moment
+    self.arrival_time = arrival_time # Time of arrival to the queue
     self.assigned_slide = 0
 
   def is_finished(self):
-    #הקבוצה סיימה את המתקן רק כשכולם נכנסו וכולם יצאו
+    # The group finished only when all of the group entered and exited
     return self.remaining_to_start == 0 and self.in_service == 0
 
   def record_entry(self, units):
-    # מעדכן כשחלק מהקבוצה נכנס למתקן
+    # Update the entry of "units" people from the group
     if units > self.remaining_to_start:
         raise ValueError(f"נסיו להכניס {units} אנשים, אך רק {self.remaining_to_start} נותרו ב-Session")
     self.remaining_to_start -= units
     self.in_service += units
 
   def record_exit(self, units):
-    # מעדכן כשחלק מהקבוצה מסיים את המתקן ויוצא ממנו
+    # Update the exit of "units" people from the group
     if units > self.in_service:
         raise ValueError(f"נסיון להוציא {units} אנשים, אך רק {self.in_service} נמצאים בשירות")
     self.in_service -= units
@@ -3314,15 +3345,30 @@ class Session:
 
 # %% id="d2JfwrJ48KAg"
 class Simulation:
-  def __init__(self,seed=GLOBAL_SEED):
+  def __init__(self, seed = None, isAlt1 = False, isAlt2 = False):
     self.seed = seed
     random.seed(self.seed)
     np.random.seed(self.seed)
+    
+    # Set global alternatives BEFORE creating Park
+    global GLOBAL_IS_ALT_1, GLOBAL_IS_ALT_2
+    GLOBAL_IS_ALT_1 = isAlt1
+    GLOBAL_IS_ALT_2 = isAlt2
+    
     self.park = Park()
     self.clock = datetime(2025, 1, 1, 9, 0)
-    self.event_diary =[] #minimum heap
+    self.event_diary =[] # minimum heap
     self.sessions = {}  # {(group, activity_name): session_object}
     self.total_waiting_time = 0
+    self.attraction_counts = {
+      "Lazy River": 0,
+      "Single Water Slide": 0, 
+      "Big Tube Slide": 0,
+      "Small Tube Slide": 0,
+      "Waves Pool": 0,
+      "Kids Pool": 0,
+      "Snorkeling Tour": 0
+    }
 
   def run(self):
     firstSingle = SingleVisitor.CreateSingleVisitor()
@@ -3340,8 +3386,7 @@ class Simulation:
         diary = event.group.members[0].activity_diary
         already_done = any(act_name == event.attraction.name and done for act_name, done in diary)
         if already_done:
-          continue  # SKIP this abandonment event entirely
-
+          continue  # Skip this abandonment event entirely
 
       # Removing all of the events of the family after the leaving event
       if isinstance(event, LeavingEvent):
@@ -3411,7 +3456,6 @@ class Simulation:
       if isinstance(res, tuple):
         return res[0], res[1]
       return res, None
-
     while True:
         candidate_session = attraction.get_priority_session(self)
         if candidate_session is None:
@@ -3443,13 +3487,15 @@ class Simulation:
 
             # Limit the capacity
             units_to_enter = min(size_needed, attraction.rideCapacity, current_capacity)
-
             candidate_session.record_entry(units_to_enter)
             attraction.queue.record_wait_for_units(next_group, units_to_enter, current_time)
             self.schedule_event(EndAttractionEvent(end_time, next_group, attraction, units_to_enter))
             
             # Enter ride for the attraction
             attraction.enter_ride(candidate_session, units_to_enter, current_time, guide_num)
+            
+            if attraction.name in self.attraction_counts:
+              self.attraction_counts[attraction.name] += 1
 
             # Update capacity for filling or another entrance
             current_capacity = attraction.get_free_capacity(current_time)
@@ -3494,13 +3540,17 @@ class Simulation:
         entrance.assign_server()
         
         # 3. Calculate the service time (Logic moved from Arrival Events)
-        service_duration = Algorithm.sample_continuous_uniform(0.5, 2) + Algorithm.sample_exponential(2)
+        if GLOBAL_IS_ALT_2:
+          ticket_time = 0
+        else:
+          ticket_time = Algorithm.sample_continuous_uniform(0.5, 2)
+        service_duration = ticket_time + Algorithm.sample_exponential(2)
         service_time = current_time + timedelta(minutes=service_duration)
         
         # 4. NOW we schedule the event
         self.schedule_event(EndGettingTicketEvent(service_time, next_group))
 
-  def print_report(self) -> None:
+  def print_report(self) -> dict:
     park = self.park
 
     def mean(values):
@@ -3559,15 +3609,13 @@ class Simulation:
 
     # We want all queues, including Park Entrance
     for qname, q in park.queues.items():
-        arrivals = getattr(q, "arrivals_count", 0)
-        reneges = getattr(q, "renege_count", 0)
+        arrivals = getattr(q, "arrivals_units", 0)
+        reneges = getattr(q, "reneged_units", 0)
 
-        avg_wait = mean(getattr(q, "waiting_times", []))
-        if getattr(q, "waiting_times", None):
-            all_waits_including_entrance.extend(q.waiting_times)
+        avg_wait_served = mean(getattr(q, "waiting_times", []))
+        avg_wait_reneged = mean(getattr(q, "renege_waiting_times", []))
 
-        # Renege rate is meaningful only where reneging exists.
-        # Entrance: will be 0 reneges; we print N/A for rate.
+        # Renege rate is meaningful only where reneging exists; entrance usually 0.
         if qname == "Park Entrance":
             renege_rate = None
         else:
@@ -3575,9 +3623,13 @@ class Simulation:
             total_arrivals_excluding_entrance += arrivals
             total_reneges_excluding_entrance += reneges
 
-        per_queue.append((qname, arrivals, avg_wait, reneges, renege_rate))
+        per_queue.append((qname, arrivals, avg_wait_served, reneges, renege_rate, avg_wait_reneged))
+        all_waits_including_entrance.extend(getattr(q, "waiting_times", []))
+
+
 
     overall_avg_wait = mean(all_waits_including_entrance)
+
 
     overall_renege_rate = (
         (total_reneges_excluding_entrance / total_arrivals_excluding_entrance)
@@ -3626,7 +3678,7 @@ class Simulation:
     print(header)
     print("-" * len(header))
 
-    for qname, arrivals, avg_wait, reneges, renege_rate in per_queue:
+    for qname, arrivals, avg_wait, reneges, renege_rate, avg_wait_reneged in per_queue:
         avg_wait_str = f"{avg_wait:.2f}" if avg_wait is not None else "N/A"
         if renege_rate is None:
             renege_str = "N/A"
@@ -3635,7 +3687,19 @@ class Simulation:
 
         print(f"{qname:<20} {arrivals:>8} {avg_wait_str:>10} {reneges:>8} {renege_str:>10}")
 
+    # Show actual rides/tours started for each attraction
+    print("\nATTRACTION ACTIVITY COUNTS (Actual rides/tours started)")
+    for attraction, count in self.attraction_counts.items():
+      print(f"- {attraction:<20}: {count:>3}")
+
     print("=" * 72 + "\n")
+
+    # Return KPI data for results table
+    return {
+        "daily_revenue": total_rev,
+        "overall_renege_rate": overall_renege_rate,
+        "overall_avg_wait": overall_avg_wait
+    }
 
 
   def route_group_to_next(self, group, current_time, next_activity=None, last_activity_tried=None):
@@ -3656,8 +3720,7 @@ class Simulation:
 
     # Increment arrival count IMMEDIATELY upon routing.
     # This ensures that "walk-ins" (who skip the queue) are still counted as arrivals.
-    queue.arrivals_count += int(group.units_for(next_activity))
-
+    queue.arrivals_units += int(group.units_for(next_activity))
 
 
     # 4) can enter immediately?
@@ -3686,7 +3749,11 @@ class Simulation:
         end_time = current_time + timedelta(minutes=attraction.get_ride_time())
         self.schedule_event(EndAttractionEvent(end_time, group, attraction, units))
         attraction.enter_ride(session, units, current_time, guide_num)
-
+        
+        # Count actual rides/tours started for immediate entries too
+        if attraction.name in self.attraction_counts:
+          self.attraction_counts[attraction.name] += 1
+        
         return
 
     # 5) otherwise -> join queue
@@ -3708,5 +3775,136 @@ class Simulation:
 
 # %%
 
-sim = Simulation()
-sim.run()
+def generate_results_table(all_results):
+    """
+    Generate and print results table from simulation data
+    all_results: list of dicts with keys 'run', 'variant', 'revenue', 'renege_rate', 'avg_wait'
+    """
+    import csv
+    import statistics
+    
+    # Organize data by variant
+    base_data = []
+    alt1_data = []
+    alt2_data = []
+    
+    for result in all_results:
+        if result['variant'] == 'Base':
+            base_data.append(result)
+        elif result['variant'] == 'Alt1':
+            alt1_data.append(result)
+        elif result['variant'] == 'Alt2':
+            alt2_data.append(result)
+    
+    # Print table header
+    print("\n" + "=" * 80)
+    print("SIMULATION RESULTS TABLE")
+    print("=" * 80)
+    
+    # Daily Revenue section
+    print("\nDAILY REVENUE (NIS)")
+    print(f"{'Run':<6} {'Base':>12} {'Alt1':>12} {'Alt2':>12}")
+    print("-" * 44)
+    
+    for i in range(15):
+        base_rev = base_data[i]['revenue']
+        alt1_rev = alt1_data[i]['revenue'] 
+        alt2_rev = alt2_data[i]['revenue']
+        print(f"{i+1:<6} {base_rev:>12.2f} {alt1_rev:>12.2f} {alt2_rev:>12.2f}")
+    
+    # Averages and standard deviations for revenue
+    base_avg = statistics.mean([d['revenue'] for d in base_data])
+    alt1_avg = statistics.mean([d['revenue'] for d in alt1_data])
+    alt2_avg = statistics.mean([d['revenue'] for d in alt2_data])
+    
+    base_std = statistics.stdev([d['revenue'] for d in base_data])
+    alt1_std = statistics.stdev([d['revenue'] for d in alt1_data])
+    alt2_std = statistics.stdev([d['revenue'] for d in alt2_data])
+    
+    print(f"{'Avg':<6} {base_avg:>12.2f} {alt1_avg:>12.2f} {alt2_avg:>12.2f}")
+    print(f"{'Std':<6} {base_std:>12.2f} {alt1_std:>12.2f} {alt2_std:>12.2f}")
+    
+    # Overall Queue Renege Rate section
+    print("\nOVERALL QUEUE RENEGE RATE")
+    print(f"{'Run':<6} {'Base':>12} {'Alt1':>12} {'Alt2':>12}")
+    print("-" * 44)
+    
+    for i in range(15):
+        base_rate = base_data[i]['renege_rate'] * 100 if base_data[i]['renege_rate'] else 0
+        alt1_rate = alt1_data[i]['renege_rate'] * 100 if alt1_data[i]['renege_rate'] else 0
+        alt2_rate = alt2_data[i]['renege_rate'] * 100 if alt2_data[i]['renege_rate'] else 0
+        print(f"{i+1:<6} {base_rate:>11.2f}% {alt1_rate:>11.2f}% {alt2_rate:>11.2f}%")
+    
+    # Averages and standard deviations for renege rate
+    base_rates = [d['renege_rate'] * 100 if d['renege_rate'] else 0 for d in base_data]
+    alt1_rates = [d['renege_rate'] * 100 if d['renege_rate'] else 0 for d in alt1_data]
+    alt2_rates = [d['renege_rate'] * 100 if d['renege_rate'] else 0 for d in alt2_data]
+    
+    base_avg_rate = statistics.mean(base_rates)
+    alt1_avg_rate = statistics.mean(alt1_rates)
+    alt2_avg_rate = statistics.mean(alt2_rates)
+    
+    base_std_rate = statistics.stdev(base_rates)
+    alt1_std_rate = statistics.stdev(alt1_rates)
+    alt2_std_rate = statistics.stdev(alt2_rates)
+    
+    print(f"{'Avg':<6} {base_avg_rate:>11.2f}% {alt1_avg_rate:>11.2f}% {alt2_avg_rate:>11.2f}%")
+    print(f"{'Std':<6} {base_std_rate:>11.2f}% {alt1_std_rate:>11.2f}% {alt2_std_rate:>11.2f}%")
+    
+    # Avg Waiting Time section
+    print("\nAVG WAITING TIME (minutes)")
+    print(f"{'Run':<6} {'Base':>12} {'Alt1':>12} {'Alt2':>12}")
+    print("-" * 44)
+    
+    for i in range(15):
+        base_wait = base_data[i]['avg_wait']
+        alt1_wait = alt1_data[i]['avg_wait']
+        alt2_wait = alt2_data[i]['avg_wait']
+        print(f"{i+1:<6} {base_wait:>12.2f} {alt1_wait:>12.2f} {alt2_wait:>12.2f}")
+    
+    # Averages and standard deviations for waiting time
+    base_avg_wait = statistics.mean([d['avg_wait'] for d in base_data])
+    alt1_avg_wait = statistics.mean([d['avg_wait'] for d in alt1_data])
+    alt2_avg_wait = statistics.mean([d['avg_wait'] for d in alt2_data])
+    
+    base_std_wait = statistics.stdev([d['avg_wait'] for d in base_data])
+    alt1_std_wait = statistics.stdev([d['avg_wait'] for d in alt1_data])
+    alt2_std_wait = statistics.stdev([d['avg_wait'] for d in alt2_data])
+    
+    print(f"{'Avg':<6} {base_avg_wait:>12.2f} {alt1_avg_wait:>12.2f} {alt2_avg_wait:>12.2f}")
+    print(f"{'Std':<6} {base_std_wait:>12.2f} {alt1_std_wait:>12.2f} {alt2_std_wait:>12.2f}")
+    
+    print("=" * 80)
+    
+
+
+# %%
+
+
+
+# Your multiple runs
+all_results = []
+
+for i in range(15):
+    # Base simulation
+    sim0 = Simulation(seed=42+i)
+    sim0.run()
+    kpi0 = sim0.print_report()
+    all_results.append({'run': i+1, 'variant': 'Base', 'revenue': kpi0['daily_revenue'], 'renege_rate': kpi0['overall_renege_rate'], 'avg_wait': kpi0['overall_avg_wait']})
+    
+    # Alt1 simulation
+    sim1 = Simulation(isAlt1=True, seed=42+i)
+    sim1.run()
+    kpi1 = sim1.print_report()
+    all_results.append({'run': i+1, 'variant': 'Alt1', 'revenue': kpi1['daily_revenue'], 'renege_rate': kpi1['overall_renege_rate'], 'avg_wait': kpi1['overall_avg_wait']})
+    
+    # Alt2 simulation
+    sim2 = Simulation(isAlt2=True, seed=42+i)
+    sim2.run()
+    kpi2 = sim2.print_report()
+    all_results.append({'run': i+1, 'variant': 'Alt2', 'revenue': kpi2['daily_revenue'], 'renege_rate': kpi2['overall_renege_rate'], 'avg_wait': kpi2['overall_avg_wait']})
+    
+    print(f"Run {i+1} completed")
+
+# Generate results table
+generate_results_table(all_results)

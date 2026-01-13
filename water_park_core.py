@@ -17,7 +17,7 @@ GLOBAL_IS_ALT_2 = False
 # Algorithm Class
 class Algorithm :
 
-  ### algorithm for discrete distribution
+  # discrete uniform distribution
   @staticmethod
   def sample_number_of_children(a,b):
     U = random.random()  # Returns a scalar from [0, 1)
@@ -25,7 +25,7 @@ class Algorithm :
     return x
 
 
-  ### algorithm for continuous distribution
+  # continuous uniform distribution
   @staticmethod
   def sample_continuous_uniform(a, b):
     U = random.random() # Returns a scalar from [0, 1)
@@ -33,21 +33,21 @@ class Algorithm :
     return x
 
 
-  ### algorithm for exponential distribution
+  # exponential distribution
   @staticmethod
   def sample_exponential(lam):
     U = random.random() # Returns a scalar from [0, 1)
     x = -(1 / lam) * math.log(1 - U)  # Uses transformation
     return x
 
-  ### algorithm for family leaving time distribution
+  # family departure time
   @staticmethod
   def sample_family_leaving_time():
     U = random.random()
     x = 16 + 3 * math.sqrt(U)# Uses transformation
     return x
 
-  ### algorithm for number of teenagers
+  # teenager group size
   @staticmethod
   def sample_number_of_teenagers():
       U = random.random()
@@ -65,7 +65,7 @@ class Algorithm :
           return 6
 
 
-  ### algorithm for standard normal distribution
+  # standard normal (Box-Muller)
   @staticmethod
   def sample_standard_normal():
 
@@ -76,9 +76,8 @@ class Algorithm :
     return Z
 
   @staticmethod
-  ### algorithm for  normal distribution
+  # normal distribution
   def sample_normal(mu, sigma):
-    #Sample from N(mu, sigma^2)
 
     Z = Algorithm.sample_standard_normal()
     X = mu + sigma * Z
@@ -86,7 +85,7 @@ class Algorithm :
 
 
   @staticmethod
-  ### algorithm for wavepool time
+  # wave pool ride time
   def generate_wavepool_time():
     while True:
       # 1. Sample U1 ~ Uniform(0, 1) and set X = 60 * U1
@@ -104,10 +103,10 @@ class Algorithm :
       if U2 <= (45 / 2) * f_x:
           return X
 
-  ### Calculating the wavepool pdf
+  # wave pool PDF
   @staticmethod
   def wavepool_pdf(x):
-    # Calculates the probability density f(x) based on the piecewise definition.
+  # piecewise PDF
     if 0 <= x <= 30:
         return x / 2700
     elif 30 < x <= 50:
@@ -118,33 +117,31 @@ class Algorithm :
         return 0
 
 
-  ### Algorithm for kids pool time
+  # kids pool ride time
   @staticmethod
   def generate_kids_pool_time():
-    # 1. Generate Global U ~ Uniform(0, 1)
+    # 1. Sample U ~ Uniform(0, 1)
     U = random.random()
 
     # 2. Check Segment 1 (Probability 1/6)
     if U < (1/6):
       # Scale U to local u [0, 1]
       u_local = 6 * U
-      # Inverse Transform for Segment 1
+      # Inverse Transform for Segment 1: x = 1 + 0.25 * sqrt(u_local)
       x = 1 + 0.25 * math.sqrt(u_local)
       return x
 
     # 3. Check Segment 2 (Probability 4/6)
-    # Cumulative probability threshold is 1/6 + 4/6 = 5/6
     elif U < (5/6):
-      # Shift and Scale U to local u [0, 1]
-      # (U - 1/6) shifts start to 0. Multiplying by 3/2 scales range (4/6) to 1.
+      # Shift and scale U to local u [0, 1]
       u_local = 1.5 * (U - (1/6))
-      # Inverse Transform for Segment 2
+      # Inverse Transform for Segment 2: x = 1.25 + (u_local / 2)
       x = 1.25 + (u_local / 2)
       return x
 
     # 4. Check Segment 3 (Probability 1/6)
     else:
-      # Shift and Scale U to local u [0, 1]
+      # Shift and scale U to local u [0, 1]
       u_local = 6 * (U - (5/6))
       # Inverse Transform for Segment 3
       x = 2 - 0.25 * math.sqrt(1 - u_local)
@@ -155,13 +152,13 @@ class Algorithm :
 # Visitor Classes
 class Visitor:
   def __init__(self, rank, age, group):
-    self.rank = 10.0 # דירוג התחלתי
+    self.rank = 10.0 # initial ranking
     self.group = group
     self.age = age
     self.activity_diary = []
 
   def add_rank(self, adrenaline_level):
-    # נוסחת הציון
+    # scoring formula
     GS = self.group.amount_of_members
     score = (((GS - 1) / 5 )* 0.3) + (((adrenaline_level - 1) / 4) * 0.7)
     self.rank = min(10,self.rank + score)
@@ -169,7 +166,6 @@ class Visitor:
   def decrease_rank(self, penalty):
     self.rank = max(0, self.rank - penalty)
 
-  #implements the success of an activity during the day
   def enter_successful(self, activity):
     for act in self.activity_diary:
       if act[0] == activity:
@@ -206,11 +202,10 @@ class Group:
   def get_candidate_activities(self, last_activity_tried):
     pass
 
-  # Checkes if the first 'count' activities have already completed
+  # Checks if the first 'count' activities have already completed
   def is_phase_finished(self, count):
     return all(act[1] for act in self.members[0].activity_diary[:count])
 
-  # Finds the minimal age on the group
   def find_min_age(self):
     minAge = self.members[0].age
     for i in range(1, len(self.members)):
@@ -244,11 +239,9 @@ class Group:
           kidsNum+=1
       return kidsNum 
     
-    # For all the rest of the activities, all of the group enters
     return self.amount_of_members
 
   def add_activity_if_not_exists(self, activity_name):
-    # Add activity to diary only if it doesn't already exist
     has_activity = any(activity_name in act for act in self.members[0].activity_diary)
     if not has_activity:
       for member in self.members:
@@ -285,11 +278,11 @@ class SingleVisitor(Group):
     phase1 = self.members[0].activity_diary[:3]
     phase2 = self.members[0].activity_diary[3:]
 
-    # Wer'e on phase 1
+    # phase 1
     if not all(act[1] for act in phase1):
       candidates = [act[0] for act in phase1 if not act[1] and act[0] != last_activity_tried]
 
-    # Wer'e on phase 2
+    # phase 2
     else:
       candidates = [act[0] for act in phase2 if not act[1] and act[0] != last_activity_tried]
 
@@ -306,7 +299,7 @@ class Family(Group):
 
 
   @staticmethod
-  def CreateFamily(): # creates family, decides ages...
+  def CreateFamily():
     new_family = Family()
     num_children = new_family.amount_of_members - 2
     # Create 2 parents
@@ -316,14 +309,14 @@ class Family(Group):
       new_family.members.append(parent)
     # Create children
     for i in range(num_children):
-      child_age = Algorithm.sample_continuous_uniform(2, 18)  # age uniform continuous [2,18]
+      child_age = Algorithm.sample_continuous_uniform(2, 18)
       child = Visitor(rank=10, age=child_age, group=new_family)
       new_family.members.append(child)
 
     
     
 
-    # Addition: Generate the activity diary for the family
+    # generate activity diary for the family
     new_family.generate_activity_diary()
 
     return new_family
@@ -382,7 +375,7 @@ class Family(Group):
       children = [m for m in self.members if m.age < 18]
 
       # Categorize children by age
-      young_children = [c for c in children if c.age < 8]  # # Must have parent or 12+
+      young_children = [c for c in children if c.age < 8]  # Must have parent or 12+
       middle_children = [c for c in children if 8 <= c.age < 12]  # Independent
       older_children = [c for c in children if c.age >= 12]  # Can supervise
 
@@ -403,7 +396,7 @@ class Family(Group):
       return self.split_groups
 
     else: # Family doesn't split
-        # Generates the rest of the activities (after the family decdided not to split)
+        # Generates the rest of the activities (after the family decided not to split)
         self.generate_final_activity_diary()
         return [self]
 
@@ -416,7 +409,7 @@ class Family(Group):
 
     return groups
 
-  #Split family to 2 groups
+  # Split family to 2 groups
   def split_into_two_groups(self, parents, young, middle, older):
 
     # Start with parents
@@ -444,7 +437,7 @@ class Family(Group):
     # Create SplitedFamily objects
     return self.create_splitted_family([group1_members, group2_members])
 
-  #Splitting a family to 3
+  # Split family into 3 groups
   def split_into_three_groups(self, parents, young, middle, older):
 
     group1_members = [parents[0]]
@@ -489,7 +482,7 @@ class Family(Group):
     # Create SplitedFamily objects
     return self.create_splitted_family([group1_members, group2_members, group3_members])
 
-  #Check if a family can split into 3 according to instructions
+  # Check if a family can split into 3 according to instructions
   def can_split_into_three(self, young, older, middle):
     return len(older) + len(middle) > 0
 
@@ -553,15 +546,15 @@ class Teenagers(Group):
       new_teenage_group = Teenagers()
       # Create teenager members
       for i in range(new_teenage_group.amount_of_members):
-          # Using reasonable upper bound of 17, choosing continous uniform distribution
+          # age uniform continuous [14, 17]
           teen_age = Algorithm.sample_continuous_uniform(14, 17)
           teen = Visitor(rank=10, age=teen_age, group=new_teenage_group)
           new_teenage_group.members.append(teen)
       
-      # Generate the activity diary
+    # Generate the activity diary
       new_teenage_group.generate_activity_diary()
       
-      # Return the new group
+    # Return the new group
       return new_teenage_group
 
   def buy_express(self, simulation):
@@ -569,7 +562,7 @@ class Teenagers(Group):
     simulation.park.special_express_revenue += self.amount_of_members * 50
 
   def generate_activity_diary(self):
-    # Generate for teenagers only the rides with 3 or more waves
+    # Generate for teenagers only the rides with 3+ adrenaline
     self.members[0].activity_diary = [["Single Water Slide", False], ["Small Tube Slide", False], ["Waves Pool", False], ["Snorkeling Tour", False]]
     random.shuffle(self.members[0].activity_diary)
 
@@ -1634,14 +1627,17 @@ class Simulation:
     self.seed = seed
     random.seed(self.seed)
     np.random.seed(self.seed)
+    
+    # Set global alternatives BEFORE creating Park
+    global GLOBAL_IS_ALT_1, GLOBAL_IS_ALT_2
+    GLOBAL_IS_ALT_1 = isAlt1
+    GLOBAL_IS_ALT_2 = isAlt2
+    
     self.park = Park()
     self.clock = datetime(2025, 1, 1, 9, 0)
     self.event_diary =[] # minimum heap
     self.sessions = {}  # {(group, activity_name): session_object}
     self.total_waiting_time = 0
-    GLOBAL_IS_ALT_1 = isAlt1
-    GLOBAL_IS_ALT_2 = isAlt2
-    # DEBUG: Track actual rides/tours started for each attraction
     self.attraction_counts = {
       "Lazy River": 0,
       "Single Water Slide": 0, 
@@ -1832,7 +1828,7 @@ class Simulation:
         # 4. NOW we schedule the event
         self.schedule_event(EndGettingTicketEvent(service_time, next_group))
 
-  def print_report(self) -> None:
+  def print_report(self) -> dict:
     park = self.park
 
     def mean(values):
@@ -1969,12 +1965,19 @@ class Simulation:
 
         print(f"{qname:<20} {arrivals:>8} {avg_wait_str:>10} {reneges:>8} {renege_str:>10}")
 
-    # DEBUG: Show actual rides/tours started for each attraction
+    # Show actual rides/tours started for each attraction
     print("\nATTRACTION ACTIVITY COUNTS (Actual rides/tours started)")
     for attraction, count in self.attraction_counts.items():
       print(f"- {attraction:<20}: {count:>3}")
 
     print("=" * 72 + "\n")
+
+    # Return KPI data for results table
+    return {
+        "daily_revenue": total_rev,
+        "overall_renege_rate": overall_renege_rate,
+        "overall_avg_wait": overall_avg_wait
+    }
 
 
   def route_group_to_next(self, group, current_time, next_activity=None, last_activity_tried=None):
@@ -2050,14 +2053,136 @@ class Simulation:
 
 # %%
 
+def generate_results_table(all_results):
+    """
+    Generate and print results table from simulation data
+    all_results: list of dicts with keys 'run', 'variant', 'revenue', 'renege_rate', 'avg_wait'
+    """
+    import csv
+    import statistics
+    
+    # Organize data by variant
+    base_data = []
+    alt1_data = []
+    alt2_data = []
+    
+    for result in all_results:
+        if result['variant'] == 'Base':
+            base_data.append(result)
+        elif result['variant'] == 'Alt1':
+            alt1_data.append(result)
+        elif result['variant'] == 'Alt2':
+            alt2_data.append(result)
+    
+    # Print table header
+    print("\n" + "=" * 80)
+    print("SIMULATION RESULTS TABLE")
+    print("=" * 80)
+    
+    # Daily Revenue section
+    print("\nDAILY REVENUE (NIS)")
+    print(f"{'Run':<6} {'Base':>12} {'Alt1':>12} {'Alt2':>12}")
+    print("-" * 44)
+    
+    for i in range(15):
+        base_rev = base_data[i]['revenue']
+        alt1_rev = alt1_data[i]['revenue'] 
+        alt2_rev = alt2_data[i]['revenue']
+        print(f"{i+1:<6} {base_rev:>12.2f} {alt1_rev:>12.2f} {alt2_rev:>12.2f}")
+    
+    # Averages and standard deviations for revenue
+    base_avg = statistics.mean([d['revenue'] for d in base_data])
+    alt1_avg = statistics.mean([d['revenue'] for d in alt1_data])
+    alt2_avg = statistics.mean([d['revenue'] for d in alt2_data])
+    
+    base_std = statistics.stdev([d['revenue'] for d in base_data])
+    alt1_std = statistics.stdev([d['revenue'] for d in alt1_data])
+    alt2_std = statistics.stdev([d['revenue'] for d in alt2_data])
+    
+    print(f"{'Avg':<6} {base_avg:>12.2f} {alt1_avg:>12.2f} {alt2_avg:>12.2f}")
+    print(f"{'Std':<6} {base_std:>12.2f} {alt1_std:>12.2f} {alt2_std:>12.2f}")
+    
+    # Overall Queue Renege Rate section
+    print("\nOVERALL QUEUE RENEGE RATE")
+    print(f"{'Run':<6} {'Base':>12} {'Alt1':>12} {'Alt2':>12}")
+    print("-" * 44)
+    
+    for i in range(15):
+        base_rate = base_data[i]['renege_rate'] * 100 if base_data[i]['renege_rate'] else 0
+        alt1_rate = alt1_data[i]['renege_rate'] * 100 if alt1_data[i]['renege_rate'] else 0
+        alt2_rate = alt2_data[i]['renege_rate'] * 100 if alt2_data[i]['renege_rate'] else 0
+        print(f"{i+1:<6} {base_rate:>11.2f}% {alt1_rate:>11.2f}% {alt2_rate:>11.2f}%")
+    
+    # Averages and standard deviations for renege rate
+    base_rates = [d['renege_rate'] * 100 if d['renege_rate'] else 0 for d in base_data]
+    alt1_rates = [d['renege_rate'] * 100 if d['renege_rate'] else 0 for d in alt1_data]
+    alt2_rates = [d['renege_rate'] * 100 if d['renege_rate'] else 0 for d in alt2_data]
+    
+    base_avg_rate = statistics.mean(base_rates)
+    alt1_avg_rate = statistics.mean(alt1_rates)
+    alt2_avg_rate = statistics.mean(alt2_rates)
+    
+    base_std_rate = statistics.stdev(base_rates)
+    alt1_std_rate = statistics.stdev(alt1_rates)
+    alt2_std_rate = statistics.stdev(alt2_rates)
+    
+    print(f"{'Avg':<6} {base_avg_rate:>11.2f}% {alt1_avg_rate:>11.2f}% {alt2_avg_rate:>11.2f}%")
+    print(f"{'Std':<6} {base_std_rate:>11.2f}% {alt1_std_rate:>11.2f}% {alt2_std_rate:>11.2f}%")
+    
+    # Avg Waiting Time section
+    print("\nAVG WAITING TIME (minutes)")
+    print(f"{'Run':<6} {'Base':>12} {'Alt1':>12} {'Alt2':>12}")
+    print("-" * 44)
+    
+    for i in range(15):
+        base_wait = base_data[i]['avg_wait']
+        alt1_wait = alt1_data[i]['avg_wait']
+        alt2_wait = alt2_data[i]['avg_wait']
+        print(f"{i+1:<6} {base_wait:>12.2f} {alt1_wait:>12.2f} {alt2_wait:>12.2f}")
+    
+    # Averages and standard deviations for waiting time
+    base_avg_wait = statistics.mean([d['avg_wait'] for d in base_data])
+    alt1_avg_wait = statistics.mean([d['avg_wait'] for d in alt1_data])
+    alt2_avg_wait = statistics.mean([d['avg_wait'] for d in alt2_data])
+    
+    base_std_wait = statistics.stdev([d['avg_wait'] for d in base_data])
+    alt1_std_wait = statistics.stdev([d['avg_wait'] for d in alt1_data])
+    alt2_std_wait = statistics.stdev([d['avg_wait'] for d in alt2_data])
+    
+    print(f"{'Avg':<6} {base_avg_wait:>12.2f} {alt1_avg_wait:>12.2f} {alt2_avg_wait:>12.2f}")
+    print(f"{'Std':<6} {base_std_wait:>12.2f} {alt1_std_wait:>12.2f} {alt2_std_wait:>12.2f}")
+    
+    print("=" * 80)
+    
+
+
+# %%
+
 
 
 # Your multiple runs
+all_results = []
+
 for i in range(15):
+    # Base simulation
     sim0 = Simulation(seed=42+i)
-    sim1 = Simulation(isAlt1=True, seed=42+i)
-    sim2 = Simulation(isAlt2=True, seed=42+i)
     sim0.run()
+    kpi0 = sim0.print_report()
+    all_results.append({'run': i+1, 'variant': 'Base', 'revenue': kpi0['daily_revenue'], 'renege_rate': kpi0['overall_renege_rate'], 'avg_wait': kpi0['overall_avg_wait']})
+    
+    # Alt1 simulation
+    sim1 = Simulation(isAlt1=True, seed=42+i)
     sim1.run()
+    kpi1 = sim1.print_report()
+    all_results.append({'run': i+1, 'variant': 'Alt1', 'revenue': kpi1['daily_revenue'], 'renege_rate': kpi1['overall_renege_rate'], 'avg_wait': kpi1['overall_avg_wait']})
+    
+    # Alt2 simulation
+    sim2 = Simulation(isAlt2=True, seed=42+i)
     sim2.run()
+    kpi2 = sim2.print_report()
+    all_results.append({'run': i+1, 'variant': 'Alt2', 'revenue': kpi2['daily_revenue'], 'renege_rate': kpi2['overall_renege_rate'], 'avg_wait': kpi2['overall_avg_wait']})
+    
     print(f"Run {i+1} completed")
+
+# Generate results table
+generate_results_table(all_results)
