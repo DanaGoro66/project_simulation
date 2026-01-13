@@ -12,9 +12,13 @@ from datetime import time, datetime, timedelta
 from collections import deque
 import heapq
 from typing import Optional, List, Any
+<<<<<<< HEAD
 GLOBAL_SEED = 42
 GLOBAL_IS_ALT_1 = False
 GLOBAL_IS_ALT_2 = False
+=======
+
+>>>>>>> a319163 (My local changes before merging friend's updates)
 
 # Algorithm Class
 class Algorithm :
@@ -727,7 +731,8 @@ class Attraction(Facility):
       pass
 
     def can_enter_immediately(self, group, current_time=None):
-      return len(self.queue.queue) == 0 and self.has_free_capacity(group, current_time, current_time)
+      result = len(self.queue.queue) == 0 and self.has_free_capacity(group, current_time, current_time)
+      return result
 
     def get_priority_session(self, simulation):
       # Find the relevant session 
@@ -777,9 +782,10 @@ class LazyRiverAttraction(Attraction):
       super().__init__("Lazy River", adrenalinLevel=1, minAge=0, available_servers=60, rideCapacity=2, queue=queue)
       self.tubes=[] # Current tubes by enter time
 
-
     def enter_ride(self,session,units_to_enter, time = datetime(2025,1,1,9,0), guide_num = None): 
-          self.add_session_to_tube(self.tubes, time, session)
+          # Generate a unique tube_id based on the counter
+          tube_id = len(self.tubes) + 1
+          self.add_session_to_tube(self.tubes, tube_id, session)
 
     def exit_ride(self,session, units_finished):
         self.remove_tube_by_session(self.tubes, session)
@@ -794,9 +800,8 @@ class LazyRiverAttraction(Attraction):
       return 0
 
     def has_free_capacity(self, group=None, end_time=datetime(2025,1,1,19,0), start_time=datetime(2025,1,1,9,0)) -> bool:
-      return len(self.tubes) < self.available_servers
-    
-  
+      has_capacity = len(self.tubes) < self.available_servers
+      return has_capacity, 0  
 
 class SingleWaterSlideAttraction(Attraction):
   def __init__(self, queue):
@@ -1006,6 +1011,15 @@ class SnorkelingTourAttraction(Attraction):
   def enter_ride(self, session, size, time, guide_num):
     self.collecting_size[guide_num] += size
 
+  def exit_ride(self, session, units_finished):
+    # Find which guide was handling this session and reduce their collecting_size
+    # Since we don't track guide assignment in session, we need to find the guide
+    # This is a simple implementation - in practice you'd want to track guide assignments
+    for gid in range(len(self.collecting_size)):
+      if self.collecting_size[gid] >= units_finished:
+        self.collecting_size[gid] -= units_finished
+        break
+
 # %% [markdown] id="A3CWWPaX6YjY"
 # #Foodstand Classes
 
@@ -1112,10 +1126,12 @@ class Queue:
         self.queue: List[Any] = []
 
         # All metrics are in MINUTES (float)
-        self.waiting_times: List[float] = []
-        self.renege_waiting_times: List[float] = []
-        self.renege_count: int = 0
-        self.arrivals_count: int = 0
+        self.waiting_times: List[float] = []          # per-unit served wait (minutes)
+        self.renege_waiting_times: List[float] = []   # per-unit reneged wait (minutes)
+
+        self.arrivals_units: int = 0   # people who arrived to this queue (incl. immediate entry)
+        self.served_units: int = 0     # people who actually entered service (sum of batches)
+        self.reneged_units: int = 0    # people who reneged
 
         # Weighted queue length is in PERSON-MINUTES (float)
         self.last_change_time: Optional[datetime] = None
@@ -1125,21 +1141,26 @@ class Queue:
     # Park entrance buffer 
     # ------------------------------------------------------------
     def add_to_park_entrance(self, group: Any, current_time: datetime) -> None:
-      self.arrivals_count += int(getattr(group, "amount_of_members", 1))
+      self.arrivals_units += int(getattr(group, "amount_of_members", 1))
       group.entrance_entry_time = current_time
       self.queue.append(group)
 
     def pop_from_park_entrance(self, current_time: datetime) -> Optional[Any]:
-        if not self.queue:
-            return None
-        group = self.queue.pop(0)
-        entry_time = getattr(group, "entrance_entry_time", None)
-        if entry_time is not None:
-            waiting_minutes = (current_time - entry_time).total_seconds() / 60.0
-            units = getattr(group, "amount_of_members", 1)
-            self.waiting_times.extend([waiting_minutes] * int(units))
+      if not self.queue:
+          return None
 
-        return group
+      group = self.queue.pop(0)
+
+      units = getattr(group, "amount_of_members", 1)  # תמיד להגדיר
+      entry_time = getattr(group, "entrance_entry_time", None)
+
+      if entry_time is not None:
+          waiting_minutes = (current_time - entry_time).total_seconds() / 60.0
+          self.waiting_times.extend([waiting_minutes] * int(units))
+
+      self.served_units += int(units)
+      return group
+
 
 
     # ------------------------------------------------------------
@@ -1199,6 +1220,8 @@ class Queue:
           return
       waiting_minutes = (current_time - entry_time).total_seconds() / 60.0
       self.waiting_times.extend([waiting_minutes] * int(units))
+      self.served_units += int(units)
+
 
     def pop_first_group_of_size(self, size: int, current_time: datetime) -> Optional[Any]:
         # scan from front and pop the FIRST group with exact match (amount_of_members == size)
@@ -1224,21 +1247,34 @@ class Queue:
 
 
     def remove_group_on_renege(self, group: Any, current_time: datetime) -> bool:
-        # Called by external RenegeEvent
-        if group not in self.queue:
-            return False
+      # Called by external QueueAbandonmentEvent (renege)
+      if group not in self.queue:
+          return False
 
-        self._update_weighted_length(current_time)
+      # structural change -> update person-minutes
+      self._update_weighted_length(current_time)
 
-        entry_time = getattr(group, "entry_time", None)
-        if entry_time is not None:
-            renege_wait_minutes = (current_time - entry_time).total_seconds() / 60.0
-            self.renege_waiting_times.append(renege_wait_minutes)
+      entry_time = getattr(group, "entry_time", None)
+      if entry_time is not None:
+          renege_wait_minutes = (current_time - entry_time).total_seconds() / 60.0
 
-        self.renege_count += 1
-        self.queue.remove(group)
+          # how many "units" this group represents for THIS facility
+          try:
+              if hasattr(group, "units_for") and callable(getattr(group, "units_for")):
+                  units = int(group.units_for(self.facility_name))
+              else:
+                  units = int(getattr(group, "amount_of_members", 1))
+          except Exception:
+              units = int(getattr(group, "amount_of_members", 1))
 
-        return True
+          # record per-unit reneging wait (so averages are per person)
+          self.renege_waiting_times.extend([renege_wait_minutes] * units)
+          self.reneged_units += units
+
+      # remove from queue
+      self.queue.remove(group)
+      return True
+
 
     # ------------------------------------------------------------
     # Internal helpers
@@ -1408,7 +1444,11 @@ class TeenagersArrivalEvent(Event):
       # Creating a leaving event at 19:00
       simulation.schedule_event(LeavingEvent(datetime(2025, 1, 1, 19, 00), self.group))
 
+<<<<<<< HEAD
     # 500 groups in a 360 minutes is a lambda of 25/18
+=======
+    # 500 groups in a day is a lambda of 25/18
+>>>>>>> a319163 (My local changes before merging friend's updates)
     time_until_next_arrival = Algorithm.sample_exponential(25/18)
     next_arrival_time = self.time + timedelta(minutes=time_until_next_arrival)
 
@@ -1600,7 +1640,11 @@ class Session:
 
 # %% id="d2JfwrJ48KAg"
 class Simulation:
+<<<<<<< HEAD
   def __init__(self, seed = GLOBAL_SEED, isAlt1 = False, isAlt2 = False):
+=======
+  def __init__(self,seed=None):
+>>>>>>> a319163 (My local changes before merging friend's updates)
     self.seed = seed
     random.seed(self.seed)
     np.random.seed(self.seed)
@@ -1609,8 +1653,21 @@ class Simulation:
     self.event_diary =[] # minimum heap
     self.sessions = {}  # {(group, activity_name): session_object}
     self.total_waiting_time = 0
+<<<<<<< HEAD
     GLOBAL_IS_ALT_1 = isAlt1
     GLOBAL_IS_ALT_2 = isAlt2
+=======
+    # DEBUG: Track actual rides/tours started for each attraction
+    self.attraction_counts = {
+      "Lazy River": 0,
+      "Single Water Slide": 0, 
+      "Big Tube Slide": 0,
+      "Small Tube Slide": 0,
+      "Waves Pool": 0,
+      "Kids Pool": 0,
+      "Snorkeling Tour": 0
+    }
+>>>>>>> a319163 (My local changes before merging friend's updates)
 
   def run(self):
     firstSingle = SingleVisitor.CreateSingleVisitor()
@@ -1698,7 +1755,6 @@ class Simulation:
       if isinstance(res, tuple):
         return res[0], res[1]
       return res, None
-
     while True:
         candidate_session = attraction.get_priority_session(self)
         if candidate_session is None:
@@ -1730,13 +1786,15 @@ class Simulation:
 
             # Limit the capacity
             units_to_enter = min(size_needed, attraction.rideCapacity, current_capacity)
-
             candidate_session.record_entry(units_to_enter)
             attraction.queue.record_wait_for_units(next_group, units_to_enter, current_time)
             self.schedule_event(EndAttractionEvent(end_time, next_group, attraction, units_to_enter))
             
             # Enter ride for the attraction
             attraction.enter_ride(candidate_session, units_to_enter, current_time, guide_num)
+            
+            if attraction.name in self.attraction_counts:
+              self.attraction_counts[attraction.name] += 1
 
             # Update capacity for filling or another entrance
             current_capacity = attraction.get_free_capacity(current_time)
@@ -1850,15 +1908,13 @@ class Simulation:
 
     # We want all queues, including Park Entrance
     for qname, q in park.queues.items():
-        arrivals = getattr(q, "arrivals_count", 0)
-        reneges = getattr(q, "renege_count", 0)
+        arrivals = getattr(q, "arrivals_units", 0)
+        reneges = getattr(q, "reneged_units", 0)
 
-        avg_wait = mean(getattr(q, "waiting_times", []))
-        if getattr(q, "waiting_times", None):
-            all_waits_including_entrance.extend(q.waiting_times)
+        avg_wait_served = mean(getattr(q, "waiting_times", []))
+        avg_wait_reneged = mean(getattr(q, "renege_waiting_times", []))
 
-        # Renege rate is meaningful only where reneging exists.
-        # Entrance: will be 0 reneges; we print N/A for rate.
+        # Renege rate is meaningful only where reneging exists; entrance usually 0.
         if qname == "Park Entrance":
             renege_rate = None
         else:
@@ -1866,9 +1922,13 @@ class Simulation:
             total_arrivals_excluding_entrance += arrivals
             total_reneges_excluding_entrance += reneges
 
-        per_queue.append((qname, arrivals, avg_wait, reneges, renege_rate))
+        per_queue.append((qname, arrivals, avg_wait_served, reneges, renege_rate, avg_wait_reneged))
+        all_waits_including_entrance.extend(getattr(q, "waiting_times", []))
+
+
 
     overall_avg_wait = mean(all_waits_including_entrance)
+
 
     overall_renege_rate = (
         (total_reneges_excluding_entrance / total_arrivals_excluding_entrance)
@@ -1917,7 +1977,7 @@ class Simulation:
     print(header)
     print("-" * len(header))
 
-    for qname, arrivals, avg_wait, reneges, renege_rate in per_queue:
+    for qname, arrivals, avg_wait, reneges, renege_rate, avg_wait_reneged in per_queue:
         avg_wait_str = f"{avg_wait:.2f}" if avg_wait is not None else "N/A"
         if renege_rate is None:
             renege_str = "N/A"
@@ -1925,6 +1985,11 @@ class Simulation:
             renege_str = f"{renege_rate:.2%}"
 
         print(f"{qname:<20} {arrivals:>8} {avg_wait_str:>10} {reneges:>8} {renege_str:>10}")
+
+    # DEBUG: Show actual rides/tours started for each attraction
+    print("\nATTRACTION ACTIVITY COUNTS (Actual rides/tours started)")
+    for attraction, count in self.attraction_counts.items():
+      print(f"- {attraction:<20}: {count:>3}")
 
     print("=" * 72 + "\n")
 
@@ -1947,7 +2012,8 @@ class Simulation:
 
     # Increment arrival count IMMEDIATELY upon routing.
     # This ensures that "walk-ins" (who skip the queue) are still counted as arrivals.
-    queue.arrivals_count += int(group.units_for(next_activity))
+    queue.arrivals_units += int(group.units_for(next_activity))
+
 
     # 4) can enter immediately?
     can_enter_now = False
@@ -1975,7 +2041,11 @@ class Simulation:
         end_time = current_time + timedelta(minutes=attraction.get_ride_time())
         self.schedule_event(EndAttractionEvent(end_time, group, attraction, units))
         attraction.enter_ride(session, units, current_time, guide_num)
-
+        
+        # Count actual rides/tours started for immediate entries too
+        if attraction.name in self.attraction_counts:
+          self.attraction_counts[attraction.name] += 1
+        
         return
 
     # 5) otherwise -> join queue
@@ -2008,3 +2078,8 @@ sim.run()
 # Run the simulation with alternative 2
 sim = Simulation(isAlt2=True)
 sim.run()
+
+# Your multiple runs
+for i in range(15):
+    sim.run(42+i)
+    print(f"Run {i+1} completed")
